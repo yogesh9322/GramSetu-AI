@@ -1,0 +1,22 @@
+{
+  "demo@gramsetu.ai": {
+    "id": "demo",
+    "name": "Demo User",
+    "email": "demo@gramsetu.ai",
+    "password": "d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791",
+    "language": "hindi",
+    "state": "Maharashtra",
+    "token": "df5dad43-1484-427c-b0bf-36ca463acca1",
+    "created_at": "2026-04-17T19:05:29.062696"
+  },
+  "pawar12@gmail.com": {
+    "id": "a5e975ca-b7f9-4025-a9ef-1258f1dad46b",
+    "name": "Sumit Kaduba Pawar",
+    "email": "pawar12@gmail.com",
+    "password": "b0c9301a3109ccbbe21b6957cab14f336a484ab9aeaa77a5fedf4c57622dbecd",
+    "language": "marathi",
+    "state": "Maharashtra",
+    "token": "3097e2ba-eafd-4e97-bb17-6515de32be0d",
+    "created_at": "2026-04-17T19:05:29.064908"
+  }
+}

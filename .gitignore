@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.egg-info/
+*.egg
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+
+# Node & Frontend
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database & Vector DB
+vector_db/
+**/vector_db/
+*.faiss
+*.pkl
+
+# Audio & Cache files
+audio_cache/
+temp_audio/
+*.mp3
+*.wav
+
+# VS Code & IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

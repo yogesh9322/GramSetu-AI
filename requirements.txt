@@ -1,0 +1,16 @@
+langchain
+langchain-google-genai
+google-generativeai
+faiss-cpu
+pdfplumber
+fastapi
+uvicorn
+openai-whisper
+gTTS
+python-dotenv
+PyJWT
+sentence-transformers
+beautifulsoup4
+requests
+langchain-community
+sentence-transformers
