@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yogesh9322/GramSetu-AI.git"
+  },
+  "homepage": "https://github.com/yogesh9322/GramSetu-AI",
   "scripts": {
     "dev": "vite",
     "start": "vite",

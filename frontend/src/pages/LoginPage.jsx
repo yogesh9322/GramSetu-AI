@@ -1,7 +1,7 @@
 import React, { useState, useContext } from "react"
 import { AuthContext } from "../context/AuthContext"
 
-const API = "http://127.0.0.1:8000"
+const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
 
 export default function LoginPage({ setPage }) {
   const { login } = useContext(AuthContext)
