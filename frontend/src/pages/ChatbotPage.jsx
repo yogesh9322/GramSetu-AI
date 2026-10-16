@@ -418,7 +418,7 @@ export default function ChatbotPage({ setPage }) {
   const [category, setCategory] = useState("all")
   const [isRecording, setIsRecording] = useState(false)
   const [audioUrl, setAudioUrl] = useState(null)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(typeof window !== "undefined" ? window.innerWidth > 768 : true)
   const [selectedScheme, setSelectedScheme] = useState(null)
   const [modalScheme, setModalScheme] = useState(null)
 
@@ -561,13 +561,24 @@ export default function ChatbotPage({ setPage }) {
   const LANG_LABELS = { marathi: "मराठी", hindi: "हिंदी", english: "English" }
 
   return (
-    <div style={{ height: "100vh", background: "#070a08", display: "flex", fontFamily: "'Plus Jakarta Sans', sans-serif", overflow: "hidden" }}>
+    <div style={{ height: "100vh", background: "#070a08", display: "flex", fontFamily: "'Plus Jakarta Sans', sans-serif", overflow: "hidden", position: "relative" }}>
+      {/* Mobile Drawer Backdrop */}
+      {sidebarOpen && (
+        <div
+          className="mobile-drawer-backdrop"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* SIDEBAR WORKSPACE */}
-      <div style={{
-        width: sidebarOpen ? 330 : 0, minWidth: sidebarOpen ? 330 : 0,
-        background: "rgba(12, 18, 14, 0.95)", borderRight: "1px solid rgba(255,255,255,0.08)",
-        display: "flex", flexDirection: "column", overflow: "hidden", transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)", flexShrink: 0
-      }}>
+      <div
+        className={sidebarOpen ? "mobile-drawer" : ""}
+        style={{
+          width: sidebarOpen ? 330 : 0, minWidth: sidebarOpen ? 330 : 0,
+          background: "rgba(12, 18, 14, 0.98)", borderRight: "1px solid rgba(255,255,255,0.08)",
+          display: "flex", flexDirection: "column", overflow: "hidden", transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)", flexShrink: 0
+        }}
+      >
         {/* Sidebar Header */}
         <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -578,7 +589,21 @@ export default function ChatbotPage({ setPage }) {
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>63 Scheme Knowledgebase</div>
               </div>
             </div>
-            <button onClick={() => setPage("home")} title="Return Home" style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 13 }}>🏠</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button onClick={() => setPage("home")} title="Return Home" style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 13 }}>🏠</button>
+              <button
+                className="mobile-drawer-close"
+                onClick={() => setSidebarOpen(false)}
+                title="Close Sidebar"
+                style={{
+                  background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)",
+                  color: "rgba(255,255,255,0.7)", width: 28, height: 28, borderRadius: 8,
+                  alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 12
+                }}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* Navigation Tabs */}
@@ -645,7 +670,11 @@ export default function ChatbotPage({ setPage }) {
                 <div
                   key={s.id}
                   className="glass-card"
-                  onClick={() => { setSelectedScheme(s); ask(s.question) }}
+                  onClick={() => {
+                    setSelectedScheme(s)
+                    ask(s.question)
+                    if (window.innerWidth <= 768) setSidebarOpen(false)
+                  }}
                   style={{
                     padding: "10px 12px", marginBottom: 6, cursor: "pointer",
                     border: selectedScheme?.id === s.id ? "1px solid rgba(76,175,80,0.6)" : "1px solid rgba(255,255,255,0.06)",
@@ -720,7 +749,10 @@ export default function ChatbotPage({ setPage }) {
               ].map((q, i) => (
                 <button
                   key={i}
-                  onClick={() => ask(q)}
+                  onClick={() => {
+                    ask(q)
+                    if (window.innerWidth <= 768) setSidebarOpen(false)
+                  }}
                   style={{
                     width: "100%", padding: "9px 12px", borderRadius: 8,
                     border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)",
@@ -759,44 +791,44 @@ export default function ChatbotPage({ setPage }) {
       {/* MAIN CHAT WORKSPACE */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {/* Header Bar */}
-        <div style={{ padding: "14px 24px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, background: "rgba(10, 15, 12, 0.8)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, background: "rgba(10, 15, 12, 0.8)", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               style={{
                 background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
                 color: "rgba(255,255,255,0.7)", width: 36, height: 36, borderRadius: 10, cursor: "pointer",
-                fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center"
+                fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
               }}
             >
               ☰
             </button>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>GramSetu AI Advisory Assistant</div>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 6, height: 6, background: "#4caf50", borderRadius: "50%", boxShadow: "0 0 8px #4caf50" }} />
-                Online • 63 Schemes • {LANG_LABELS[lang]} Mode
+            <div style={{ minWidth: 0 }}>
+              <div className="chat-header-title" style={{ fontSize: 15, fontWeight: 800, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>GramSetu AI Advisory Assistant</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                <span style={{ width: 6, height: 6, background: "#4caf50", borderRadius: "50%", boxShadow: "0 0 8px #4caf50", flexShrink: 0 }} />
+                <span>63 Schemes • {LANG_LABELS[lang]}</span>
                 {selectedScheme && <span style={{ color: "#4caf50" }}> • {selectedScheme.icon} {selectedScheme.name}</span>}
               </div>
             </div>
           </div>
 
           {/* Quick Language Toggle */}
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
             {[
-              { v: "marathi", l: "🟠 मराठी" },
-              { v: "hindi", l: "🇮🇳 हिंदी" },
-              { v: "english", l: "🔵 English" }
+              { v: "marathi", l: "मराठी" },
+              { v: "hindi", l: "हिंदी" },
+              { v: "english", l: "EN" }
             ].map(l => (
               <button
                 key={l.v}
                 onClick={() => setLang(l.v)}
                 style={{
-                  padding: "6px 12px", borderRadius: 8,
+                  padding: "5px 8px", borderRadius: 8,
                   border: `1px solid ${lang === l.v ? "rgba(76,175,80,0.6)" : "rgba(255,255,255,0.08)"}`,
                   background: lang === l.v ? "rgba(76,175,80,0.15)" : "transparent",
                   color: lang === l.v ? "#4caf50" : "rgba(255,255,255,0.4)",
-                  cursor: "pointer", fontSize: 12, fontWeight: 700, transition: "all 0.2s"
+                  cursor: "pointer", fontSize: 11, fontWeight: 700, transition: "all 0.2s", whiteSpace: "nowrap"
                 }}
               >
                 {l.l}
@@ -806,42 +838,45 @@ export default function ChatbotPage({ setPage }) {
         </div>
 
         {/* Message Stream */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 14 }}>
           {messages.map((msg, i) => (
             <div
               key={i}
               style={{
                 display: "flex",
                 justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-                gap: 12,
+                gap: 10,
                 alignItems: "flex-start"
               }}
             >
               {msg.role === "bot" && (
                 <div style={{
-                  width: 38, height: 38, background: "linear-gradient(135deg,#1b5e20,#4caf50)",
-                  borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 18, flexShrink: 0, boxShadow: "0 4px 14px rgba(76,175,80,0.3)"
+                  width: 34, height: 34, background: "linear-gradient(135deg,#1b5e20,#4caf50)",
+                  borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 16, flexShrink: 0, boxShadow: "0 4px 14px rgba(76,175,80,0.3)"
                 }}>
                   🌾
                 </div>
               )}
 
-              <div style={{
-                maxWidth: "78%", padding: msg.role === "user" ? "12px 18px" : "16px 20px",
-                borderRadius: msg.role === "user" ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
-                background: msg.role === "user" ? "linear-gradient(135deg,#2e7d32,#4caf50)" : "rgba(22, 33, 25, 0.7)",
-                border: msg.role === "bot" ? "1px solid rgba(76, 175, 80, 0.25)" : "none",
-                color: "#fff", fontSize: 15, lineHeight: 1.6, boxShadow: "0 6px 20px rgba(0,0,0,0.25)"
-              }}>
+              <div
+                className="chat-msg-bubble"
+                style={{
+                  maxWidth: "78%", padding: msg.role === "user" ? "12px 16px" : "14px 16px",
+                  borderRadius: msg.role === "user" ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
+                  background: msg.role === "user" ? "linear-gradient(135deg,#2e7d32,#4caf50)" : "rgba(22, 33, 25, 0.7)",
+                  border: msg.role === "bot" ? "1px solid rgba(76, 175, 80, 0.25)" : "none",
+                  color: "#fff", fontSize: 14, lineHeight: 1.6, boxShadow: "0 6px 20px rgba(0,0,0,0.25)"
+                }}
+              >
                 {msg.role === "bot" ? <FormattedAnswer text={msg.text} lang={msg.lang || lang} /> : msg.text}
               </div>
 
               {msg.role === "user" && (
                 <div style={{
-                  width: 38, height: 38, background: "linear-gradient(135deg,#1565C0,#1976D2)",
-                  borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 14, flexShrink: 0, fontWeight: 800, color: "#fff"
+                  width: 34, height: 34, background: "linear-gradient(135deg,#1565C0,#1976D2)",
+                  borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 13, flexShrink: 0, fontWeight: 800, color: "#fff"
                 }}>
                   {(user?.name || "U")[0].toUpperCase()}
                 </div>
@@ -850,11 +885,11 @@ export default function ChatbotPage({ setPage }) {
           ))}
 
           {loading && (
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-              <div style={{ width: 38, height: 38, background: "linear-gradient(135deg,#1b5e20,#4caf50)", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <div style={{ width: 34, height: 34, background: "linear-gradient(135deg,#1b5e20,#4caf50)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
                 🌾
               </div>
-              <div style={{ padding: "14px 20px", borderRadius: "20px 20px 20px 4px", background: "rgba(22, 33, 25, 0.7)", border: "1px solid rgba(76, 175, 80, 0.25)", display: "flex", gap: 6 }}>
+              <div style={{ padding: "12px 18px", borderRadius: "20px 20px 20px 4px", background: "rgba(22, 33, 25, 0.7)", border: "1px solid rgba(76, 175, 80, 0.25)", display: "flex", gap: 6 }}>
                 <span className="badge badge-emerald">Thinking...</span>
               </div>
             </div>
@@ -864,12 +899,12 @@ export default function ChatbotPage({ setPage }) {
 
         {/* Voice Audio Answer Player */}
         {audioUrl && (
-          <div style={{ padding: "10px 24px", borderTop: "1px solid rgba(76,175,80,0.2)", display: "flex", alignItems: "center", gap: 12, background: "rgba(76,175,80,0.08)" }}>
-            <span style={{ fontSize: 13, color: "#4caf50", fontWeight: 700 }}>🔊 Voice Output Ready:</span>
-            <button onClick={() => audioRef.current?.play()} className="btn-primary" style={{ padding: "6px 14px", fontSize: 12, borderRadius: 8 }}>
-              ▶ Play Audio Answer
+          <div style={{ padding: "8px 16px", borderTop: "1px solid rgba(76,175,80,0.2)", display: "flex", alignItems: "center", gap: 10, background: "rgba(76,175,80,0.08)", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: "#4caf50", fontWeight: 700 }}>🔊 Voice Ready:</span>
+            <button onClick={() => audioRef.current?.play()} className="btn-primary" style={{ padding: "6px 12px", fontSize: 11, borderRadius: 8 }}>
+              ▶ Play Audio
             </button>
-            <button onClick={() => setAudioUrl(null)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 16 }}>
+            <button onClick={() => setAudioUrl(null)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 14 }}>
               ✕
             </button>
             <audio ref={audioRef} src={audioUrl} />
@@ -877,7 +912,7 @@ export default function ChatbotPage({ setPage }) {
         )}
 
         {/* Input Console */}
-        <div style={{ padding: "16px 24px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(10, 15, 12, 0.95)" }}>
+        <div className="chat-input-area" style={{ padding: "14px 16px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(10, 15, 12, 0.95)" }}>
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
             {/* Record Button */}
             <button

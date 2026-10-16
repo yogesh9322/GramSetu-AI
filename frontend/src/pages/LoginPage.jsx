@@ -41,9 +41,9 @@ export default function LoginPage({ setPage }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#070a08", display: "flex", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div className="auth-split-layout" style={{ minHeight: "100vh", background: "#070a08", display: "flex", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       {/* Left Spotlight Panel */}
-      <div style={{
+      <div className="auth-left-panel" style={{
         flex: 1.2,
         background: "linear-gradient(135deg, #09140b 0%, #142817 50%, #09140b 100%)",
         display: "flex",
@@ -95,7 +95,7 @@ export default function LoginPage({ setPage }) {
       </div>
 
       {/* Right Login Form */}
-      <div style={{
+      <div className="auth-right-panel" style={{
         width: 520, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
         padding: "50px 48px", background: "rgba(14, 22, 16, 0.95)", borderLeft: "1px solid rgba(255,255,255,0.08)"
       }}>
@@ -105,13 +105,18 @@ export default function LoginPage({ setPage }) {
             onClick={() => setPage("home")}
             style={{
               background: "none", border: "none", color: "rgba(255,255,255,0.45)", cursor: "pointer",
-              fontSize: 14, fontWeight: 600, marginBottom: 36, display: "flex", alignItems: "center", gap: 6
+              fontSize: 14, fontWeight: 600, marginBottom: 28, display: "flex", alignItems: "center", gap: 6
             }}
           >
             ← Return to Homepage
           </button>
 
-          <h2 style={{ fontSize: 32, fontWeight: 800, color: "#fff", marginBottom: 8 }}>Sign In</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <span style={{ fontSize: 28 }}>🌾</span>
+            <span style={{ fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: "Playfair Display" }}>GramSetu AI</span>
+          </div>
+
+          <h2 style={{ fontSize: 28, fontWeight: 800, color: "#fff", marginBottom: 8 }}>Sign In</h2>
           <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginBottom: 32 }}>
             Enter your credentials to manage your account
           </p>

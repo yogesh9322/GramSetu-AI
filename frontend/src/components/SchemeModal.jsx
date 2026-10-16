@@ -16,7 +16,7 @@ export default function SchemeModal({ scheme, onClose, onAskAI }) {
       display: "flex",
       alignItems: "center",
       justify: "center",
-      padding: "20px"
+      padding: "16px 12px"
     }} onClick={onClose}>
       <div style={{
         background: "rgba(18, 26, 20, 0.95)",
@@ -27,15 +27,15 @@ export default function SchemeModal({ scheme, onClose, onAskAI }) {
         maxHeight: "90vh",
         overflowY: "auto",
         boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(76, 175, 80, 0.15)",
-        padding: "28px",
+        padding: "24px 18px",
         position: "relative",
         animation: "mi 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
       }} onClick={e => e.stopPropagation()}>
         {/* Close Button */}
         <button onClick={onClose} style={{
           position: "absolute",
-          top: 20,
-          right: 20,
+          top: 16,
+          right: 16,
           background: "rgba(255, 255, 255, 0.08)",
           border: "1px solid rgba(255, 255, 255, 0.12)",
           color: "rgba(255, 255, 255, 0.6)",
@@ -93,32 +93,34 @@ export default function SchemeModal({ scheme, onClose, onAskAI }) {
           background: "linear-gradient(135deg, rgba(76, 175, 80, 0.12) 0%, rgba(46, 125, 50, 0.05) 100%)",
           border: "1px solid rgba(76, 175, 80, 0.25)",
           borderRadius: 14,
-          padding: "16px 20px",
-          marginBottom: 24,
+          padding: "14px 16px",
+          marginBottom: 20,
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between"
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 12
         }}>
           <div>
             <div style={{ fontSize: 11, textTransform: "uppercase", color: "rgba(255, 255, 255, 0.5)", fontWeight: 600, letterSpacing: 0.5 }}>
               Key Benefit
             </div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "#4caf50", marginTop: 2 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#4caf50", marginTop: 2 }}>
               💰 {scheme.benefit}
             </div>
           </div>
-          <div style={{ textAlign: "right" }}>
+          <div>
             <div style={{ fontSize: 11, textTransform: "uppercase", color: "rgba(255, 255, 255, 0.5)", fontWeight: 600, letterSpacing: 0.5 }}>
               Toll-Free Helpline
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginTop: 2 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginTop: 2 }}>
               📞 {scheme.helpline}
             </div>
           </div>
         </div>
 
         {/* Description */}
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 20 }}>
           <h4 style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: 0.8, color: "rgba(255, 255, 255, 0.4)", marginBottom: 8, fontWeight: 700 }}>
             Overview
           </h4>
@@ -128,11 +130,11 @@ export default function SchemeModal({ scheme, onClose, onAskAI }) {
         </div>
 
         {/* Checklist */}
-        <div style={{ marginBottom: 28, background: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: 14, padding: "16px" }}>
+        <div style={{ marginBottom: 24, background: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: 14, padding: "14px 16px" }}>
           <h4 style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: 0.8, color: "rgba(255, 255, 255, 0.4)", marginBottom: 12, fontWeight: 700 }}>
             General Requirements
           </h4>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
             {["Valid Aadhaar Card", "Active Bank Account", "Domicile Certificate", "Category / Land Record"].map((item, idx) => (
               <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "rgba(255, 255, 255, 0.75)" }}>
                 <span style={{ color: "#4caf50", fontWeight: "bold" }}>✓</span> {item}

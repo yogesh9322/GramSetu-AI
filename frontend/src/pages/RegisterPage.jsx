@@ -48,9 +48,9 @@ export default function RegisterPage({ setPage }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#070a08", display: "flex", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div className="auth-split-layout" style={{ minHeight: "100vh", background: "#070a08", display: "flex", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       {/* Left Panel */}
-      <div style={{
+      <div className="auth-left-panel" style={{
         flex: 1.2, background: "linear-gradient(135deg,#09140b 0%,#142817 50%,#09140b 100%)",
         display: "flex", flexDirection: "column", justifyContent: "center", padding: "60px 80px", position: "relative"
       }}>
@@ -96,19 +96,43 @@ export default function RegisterPage({ setPage }) {
       </div>
 
       {/* Right Form Panel */}
-      <div style={{
+      <div className="auth-right-panel" style={{
         width: 520, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
         padding: "50px 48px", background: "rgba(14, 22, 16, 0.95)", borderLeft: "1px solid rgba(255,255,255,0.08)"
       }}>
         <div style={{ width: "100%", maxWidth: 380 }}>
-          <button onClick={() => setPage("home")} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 14, fontWeight: 600, marginBottom: 32 }}>
+          <button onClick={() => setPage("home")} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 14, fontWeight: 600, marginBottom: 24 }}>
             ← Return to Homepage
           </button>
 
-          <h2 style={{ fontSize: 30, fontWeight: 800, color: "#fff", marginBottom: 6 }}>Create Free Account</h2>
-          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <span style={{ fontSize: 28 }}>🌾</span>
+            <span style={{ fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: "Playfair Display" }}>GramSetu AI</span>
+          </div>
+
+          <h2 style={{ fontSize: 28, fontWeight: 800, color: "#fff", marginBottom: 6 }}>Create Free Account</h2>
+          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginBottom: 24 }}>
             Step {step} of 2 — {step === 1 ? "Enter basic details" : "Set security password"}
           </p>
+
+          {/* Stepper for mobile view */}
+          <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+            {[{ n: 1, title: "Personal" }, { n: 2, title: "Security" }].map(s => (
+              <div key={s.n} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{
+                  width: 26, height: 26, borderRadius: "50%",
+                  background: step >= s.n ? "linear-gradient(135deg,#2e7d32,#4caf50)" : "rgba(255,255,255,0.08)",
+                  color: step >= s.n ? "#fff" : "rgba(255,255,255,0.4)",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800
+                }}>
+                  {step > s.n ? "✓" : s.n}
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: step >= s.n ? "#fff" : "rgba(255,255,255,0.4)" }}>
+                  {s.title}
+                </span>
+              </div>
+            ))}
+          </div>
 
           {error && (
             <div style={{ background: "rgba(239,83,80,0.12)", border: "1px solid rgba(239,83,80,0.35)", borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 14, color: "#ef5350" }}>
