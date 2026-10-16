@@ -150,10 +150,25 @@ export default function LoginPage({ setPage }) {
               />
             </div>
 
-            <div style={{ marginBottom: 28 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 8 }}>
-                Password
-              </label>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: 0.8 }}>
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setPage("forgot-password")}
+                  style={{
+                    background: "none", border: "none", color: "#4caf50",
+                    fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0,
+                    transition: "color 0.2s"
+                  }}
+                  onMouseEnter={e => e.target.style.color = "#81c784"}
+                  onMouseLeave={e => e.target.style.color = "#4caf50"}
+                >
+                  Forgot Password?
+                </button>
+              </div>
               <div style={{ position: "relative" }}>
                 <input
                   type={showPass ? "text" : "password"}

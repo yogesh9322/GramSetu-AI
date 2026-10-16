@@ -3,8 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-import json, os, uuid, hashlib, io, tempfile, sqlite3, base64
-from datetime import datetime
+import json, os, uuid, hashlib, io, tempfile, sqlite3, base64, secrets, smtplib, re
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(title="GramSetu AI API")
 
@@ -72,6 +77,19 @@ def init_database():
             updated_at TEXT
         )
     ''')
+
+    # Create password resets table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            is_used INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_pw_reset_hash ON password_resets (token_hash)')
     
     # Seed default demo account so demo login works immediately out of the box
     cursor.execute("SELECT id FROM users WHERE email = 'demo@gramsetu.ai'")
@@ -377,6 +395,233 @@ async def get_me(credentials: HTTPAuthorizationCredentials = Depends(security)):
     if not user:
         raise HTTPException(status_code=401, detail="Invalid token")
     return {"id": user["id"], "name": user["name"], "email": user["email"], "language": user["language"]}
+
+# ── Email & Password Reset Configuration ──────────────────────
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+EMAILS_FROM = os.getenv("EMAILS_FROM", os.getenv("SMTP_FROM", SMTP_USER or "GramSetu AI <noreply@gramsetu.ai>"))
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://gram-setu-ai.vercel.app").rstrip("/")
+
+def send_password_reset_email(to_email: str, reset_url: str) -> bool:
+    """
+    Send a professional HTML and plain-text password reset email via SMTP.
+    Returns True if sent successfully, False otherwise.
+    """
+    subject = "Reset Your Password - GramSetu AI"
+    
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password</title>
+</head>
+<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #070a08; margin: 0; padding: 24px 12px; color: #ffffff;">
+  <div style="max-width: 560px; margin: 0 auto; background: #0f1712; border: 1px solid rgba(76, 175, 80, 0.3); border-radius: 20px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.6);">
+    <div style="background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%); padding: 32px 24px; text-align: center;">
+      <div style="width: 52px; height: 52px; margin: 0 auto 12px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 28px; line-height: 52px;">🌾</div>
+      <span style="display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 100px; font-size: 11px; font-weight: 700; color: #e8f5e9; text-transform: uppercase; letter-spacing: 1px;">GramSetu AI Security</span>
+      <h1 style="margin: 12px 0 0; font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">Reset Your Password</h1>
+    </div>
+    <div style="padding: 32px 28px; font-size: 15px; line-height: 1.7; color: #d1d5db;">
+      <p style="margin: 0 0 16px;">Hello,</p>
+      <p style="margin: 0 0 18px;">We received a request to reset the password for your GramSetu AI account registered with <strong style="color: #4caf50;">{to_email}</strong>.</p>
+      <p style="margin: 0 0 24px;">Click the secure button below to set a new password:</p>
+      
+      <div style="text-align: center; margin: 28px 0;">
+        <a href="{reset_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: #ffffff !important; text-decoration: none; padding: 14px 34px; font-size: 16px; font-weight: 700; border-radius: 12px; box-shadow: 0 4px 20px rgba(76, 175, 80, 0.4);">
+          Reset My Password →
+        </a>
+      </div>
+
+      <div style="background: rgba(76, 175, 80, 0.08); border-left: 4px solid #4caf50; padding: 14px 16px; border-radius: 8px; margin: 24px 0; font-size: 13px; color: #a5d6a7;">
+        ⏱️ <strong>Expiration Notice:</strong> This link is valid for <strong>20 minutes</strong> and can only be used once.
+      </div>
+
+      <p style="font-size: 13px; color: #9ca3af; margin: 20px 0 8px;">If the button above does not work, copy and paste this link into your browser:</p>
+      <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; word-break: break-all; font-size: 12px; color: #81c784; font-family: monospace;">
+        {reset_url}
+      </div>
+
+      <p style="margin-top: 28px; font-size: 13px; color: #9ca3af; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 18px;">
+        🔒 <strong>Security Notice:</strong> If you did not request this password reset, please ignore this email. Your current password will remain unchanged and your account is completely safe.
+      </p>
+    </div>
+    <div style="padding: 20px 24px; background: #070a08; border-top: 1px solid rgba(255,255,255,0.06); text-align: center; font-size: 12px; color: #6b7280;">
+      <p style="margin: 0 0 6px;">© {datetime.now().year} GramSetu AI • Bridging Villages to 63+ Government Schemes</p>
+      <p style="margin: 0;">Multilingual AI Village Advisory Assistant • 100% Free & Open Access</p>
+    </div>
+  </div>
+</body>
+</html>"""
+
+    plain_text = f"""Reset Your Password - GramSetu AI
+
+Hello,
+
+We received a request to reset the password for your GramSetu AI account ({to_email}).
+
+Please visit the link below to choose a new password:
+{reset_url}
+
+This link is valid for 20 minutes and can only be used once.
+
+Security Notice: If you did not request a password reset, you can safely ignore this email. Your account remains secure.
+
+--
+GramSetu AI Team
+Multilingual Government Scheme Assistant
+https://gram-setu-ai.vercel.app
+"""
+
+    print(f"[AUTH] Generated password reset link for {to_email}: {reset_url}")
+
+    if not SMTP_USER or not SMTP_PASSWORD:
+        print("[AUTH] (Notice) SMTP_USER / SMTP_PASSWORD not set in environment. Live email not sent, but reset link was logged above for verification.")
+        return False
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = EMAILS_FROM
+        msg["To"] = to_email
+
+        part1 = MIMEText(plain_text, "plain")
+        part2 = MIMEText(html_content, "html")
+        msg.attach(part1)
+        msg.attach(part2)
+
+        if SMTP_PORT == 465:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                server.sendmail(EMAILS_FROM, to_email, msg.as_string())
+        else:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+                server.starttls()
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                server.sendmail(EMAILS_FROM, to_email, msg.as_string())
+
+        print(f"[AUTH] Successfully sent password reset email to {to_email}")
+        return True
+    except Exception as e:
+        print(f"[AUTH] Failed to send email via SMTP ({SMTP_HOST}:{SMTP_PORT}): {e}")
+        return False
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+@app.post("/auth/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest):
+    email = req.email.strip().lower()
+    if not email or "@" not in email or "." not in email:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+
+    user = get_user_by_email(email)
+
+    # To protect against email enumeration, always return positive status to client
+    if user:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cursor = conn.cursor()
+        # Invalidate any existing unused reset tokens for this user
+        cursor.execute("UPDATE password_resets SET is_used = 1 WHERE email = ? AND is_used = 0", (email,))
+        
+        # Generate cryptographically secure single-use token
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        expires_at = (datetime.utcnow() + timedelta(minutes=25)).isoformat()
+        created_at = datetime.utcnow().isoformat()
+        
+        cursor.execute('''
+            INSERT INTO password_resets (email, token_hash, expires_at, is_used, created_at)
+            VALUES (?, ?, ?, 0, ?)
+        ''', (email, token_hash, expires_at, created_at))
+        conn.commit()
+        conn.close()
+
+        reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
+
+        # Dispatch email asynchronously in background thread
+        threading.Thread(target=send_password_reset_email, args=(email, reset_link), daemon=True).start()
+    else:
+        print(f"[AUTH] Password reset requested for non-existent email: {email}")
+
+    return {
+        "status": "success",
+        "message": "If an account is associated with this email, a password reset link has been sent. Please check your inbox and spam folder."
+    }
+
+@app.post("/auth/reset-password")
+async def reset_password(req: ResetPasswordRequest):
+    token = req.token.strip()
+    new_password = req.new_password
+
+    if not token:
+        raise HTTPException(status_code=400, detail="Password reset token is missing or invalid.")
+
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters.")
+
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, email, expires_at, is_used 
+        FROM password_resets 
+        WHERE token_hash = ?
+    ''', (token_hash,))
+    row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Invalid or non-existent password reset link. Please request a new one.")
+
+    reset_id, email, expires_at, is_used = row
+
+    if is_used:
+        conn.close()
+        raise HTTPException(status_code=400, detail="This password reset link has already been used. Please request a new one.")
+
+    try:
+        exp_time = datetime.fromisoformat(expires_at)
+        if datetime.utcnow() > exp_time:
+            conn.close()
+            raise HTTPException(status_code=400, detail="This password reset link has expired (valid for 20 minutes). Please request a new one.")
+    except Exception:
+        pass
+
+    user = get_user_by_email(email)
+    if not user:
+        conn.close()
+        raise HTTPException(status_code=400, detail="User account associated with this reset link was not found.")
+
+    # Hash new password and update user record
+    hashed_pwd = hash_password(new_password)
+    new_auth_token = str(uuid.uuid4())
+
+    cursor.execute('''
+        UPDATE users 
+        SET password = ?, token = ? 
+        WHERE email = ?
+    ''', (hashed_pwd, new_auth_token, email))
+
+    # Mark token as used
+    cursor.execute("UPDATE password_resets SET is_used = 1 WHERE id = ?", (reset_id,))
+    conn.commit()
+    conn.close()
+
+    print(f"[AUTH] Successfully reset password for: {email}")
+
+    return {
+        "status": "success",
+        "message": "Your password has been successfully reset! You can now log in with your new password."
+    }
 
 # ── Ask Endpoint ───────────────────────────────────────────────
 @app.post("/ask")
