@@ -585,12 +585,12 @@ async def text_to_speech_endpoint(text: str, language: str = "hindi"):
         print(f"❌ TTS Endpoint error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ── Health check ──────────────────────────────────────────────
-@app.get("/")
+# ── Health check (Supports GET and HEAD for Render healthcheck probes) ──
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     return {"message": "GramSetu AI API", "status": "running", "version": "2.0"}
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     return {"status": "healthy", "api": "GramSetu AI"}
 

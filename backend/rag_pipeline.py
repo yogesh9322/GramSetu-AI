@@ -130,10 +130,13 @@ def load_vector_db():
 def get_llm():
     global _LLM
     if _LLM is None:
+        groq_key = os.getenv("GROQ_API_KEY")
+        if not groq_key:
+            raise ValueError("GROQ_API_KEY environment variable is missing on Render. Please open your Render Dashboard -> Service -> Environment and add GROQ_API_KEY.")
         print("[INFO] Initializing Groq LLM client (openai/gpt-oss-20b)...")
         _LLM = ChatGroq(
             model="openai/gpt-oss-20b",
-            groq_api_key=os.getenv("GROQ_API_KEY"),
+            groq_api_key=groq_key,
             temperature=0.2,
             max_tokens=900
         )
@@ -143,20 +146,61 @@ def get_llm():
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
+def get_fallback_context(question: str) -> str:
+    """Instant direct scheme context retrieval from data/*.txt (zero RAM overhead, 100% reliable)"""
+    data_dir = os.path.join(os.path.dirname(__file__), "../data")
+    files = glob.glob(os.path.join(data_dir, "*.txt"))
+    if not files:
+        return ""
+    
+    q_words = [w.lower() for w in question.split() if len(w) > 2]
+    scored = []
+    for fp in files:
+        fname = os.path.basename(fp).lower()
+        try:
+            with open(fp, "r", encoding="utf-8") as f:
+                content = f.read()
+            score = sum(4 for w in q_words if w in fname) + sum(1 for w in q_words if w in content.lower())
+            if score > 0:
+                scored.append((score, content))
+        except Exception:
+            pass
+            
+    scored.sort(key=lambda x: x[0], reverse=True)
+    if scored:
+        return "\n\n".join(c for _, c in scored[:3])
+    
+    # If no keyword matched, return top scheme
+    try:
+        with open(files[0], "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception:
+        return ""
+
 def get_answer(question, preferred_language=None):
     t_start = time.time()
     language = preferred_language if preferred_language else detect_language(question)
     
-    vectordb = load_vector_db()
     llm = get_llm()
     prompt = get_prompt(language)
+    context = ""
+
+    # 1. Try FAISS Vector DB retrieval
+    try:
+        vectordb = load_vector_db()
+        if vectordb:
+            retriever = vectordb.as_retriever(search_kwargs={"k": 3})
+            docs = retriever.invoke(question)
+            context = format_docs(docs)
+    except Exception as e:
+        print(f"[WARN] FAISS retrieval notice: {e}, using direct scheme context...")
+
+    # 2. If vector DB returned empty or wasn't ready, use instant direct scheme context
+    if not context.strip():
+        context = get_fallback_context(question)
     
-    retriever = vectordb.as_retriever(search_kwargs={"k": 3})
-    chain = (
-        {"context": retriever | format_docs, "question": RunnablePassthrough()}
-        | prompt | llm | StrOutputParser()
-    )
-    answer = chain.invoke(question)
+    chain = prompt | llm | StrOutputParser()
+    answer = chain.invoke({"context": context, "question": question})
     elapsed = time.time() - t_start
     print(f"[PERF] Answer generated in {elapsed:.2f}s (Language: {language})")
     return answer, language

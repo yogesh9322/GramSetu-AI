@@ -455,10 +455,15 @@ export default function ChatbotPage({ setPage }) {
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       )
       setMessages(p => [...p, { role: "bot", text: res.data.answer, lang: res.data.language }])
-    } catch {
+    } catch (err) {
+      const serverErr = err?.response?.data?.detail
       setMessages(p => [
         ...p,
-        { role: "bot", text: "❌ Backend service unreachable. Please ensure the Python FastAPI backend (uvicorn) is running!", lang }
+        {
+          role: "bot",
+          text: serverErr || "⚠️ Backend server is waking up or temporarily unavailable on Render. Please wait 10-20 seconds and ask again.",
+          lang
+        }
       ])
     } finally {
       setLoading(false)
