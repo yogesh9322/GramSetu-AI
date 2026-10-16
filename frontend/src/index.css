@@ -354,6 +354,33 @@ body {
     gap: 12px !important;
   }
 
+  .stat-card {
+    padding: 18px 12px !important;
+    border-radius: 16px !important;
+    min-height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .stat-card-icon {
+    font-size: 26px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .stat-card-num {
+    font-size: 28px !important;
+    line-height: 1.15 !important;
+    margin-bottom: 4px !important;
+  }
+
+  .stat-card-label {
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+  }
+
   .features-grid {
     grid-template-columns: 1fr !important;
     gap: 16px !important;

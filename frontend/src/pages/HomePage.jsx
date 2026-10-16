@@ -4,8 +4,8 @@ import SchemeModal from "../components/SchemeModal"
 
 const STATS = [
   { num: "63+", label: "Govt Schemes Covered", icon: "📋" },
-  { num: "3", label: "Languages (Hindi, Marathi, English)", icon: "🌐" },
-  { num: "800M+", label: "Rural Indian Citizens", icon: "🇮🇳" },
+  { num: "3", label: "Regional Languages", icon: "🌐" },
+  { num: "800M+", label: "Rural Citizens Reach", icon: "👥" },
   { num: "100%", label: "Free Forever & Open", icon: "💚" },
 ]
 
@@ -318,13 +318,13 @@ export default function HomePage({ setPage }) {
       </div>
 
       {/* STATS SECTION */}
-      <section className="section-padding" style={{ padding: "90px 6%" }}>
+      <section className="section-padding" style={{ padding: "80px 6%" }}>
         <div className="stats-grid" style={{ maxWidth: 1240, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 24 }}>
           {STATS.map((s, i) => (
-            <div key={i} className="glass-card" style={{ padding: "36px 28px", textAlign: "center" }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>{s.icon}</div>
-              <div style={{ fontFamily: "Playfair Display", fontSize: 46, fontWeight: 900, color: "#4caf50", marginBottom: 6 }}>{s.num}</div>
-              <div style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>{s.label}</div>
+            <div key={i} className="glass-card stat-card" style={{ padding: "32px 24px", textAlign: "center", borderRadius: 18, border: "1px solid rgba(76,175,80,0.2)" }}>
+              <div className="stat-card-icon" style={{ fontSize: 36, marginBottom: 10 }}>{s.icon}</div>
+              <div className="stat-card-num" style={{ fontFamily: "Playfair Display", fontSize: 42, fontWeight: 900, color: "#4caf50", marginBottom: 6 }}>{s.num}</div>
+              <div className="stat-card-label" style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{s.label}</div>
             </div>
           ))}
         </div>
