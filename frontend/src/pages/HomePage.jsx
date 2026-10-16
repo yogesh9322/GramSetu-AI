@@ -97,26 +97,26 @@ export default function HomePage({ setPage }) {
       {/* NAVBAR */}
       <nav style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-        background: scrollY > 30 ? "rgba(7, 10, 8, 0.92)" : "transparent",
-        backdropFilter: scrollY > 30 ? "blur(20px)" : "none",
-        borderBottom: scrollY > 30 ? "1px solid rgba(76, 175, 80, 0.2)" : "1px solid transparent",
-        transition: "all 0.3s ease", padding: "0 6%"
+        background: scrollY > 20 ? "rgba(7, 10, 8, 0.95)" : "rgba(7, 10, 8, 0.88)",
+        backdropFilter: "blur(20px)",
+        borderBottom: "1px solid rgba(76, 175, 80, 0.2)",
+        transition: "all 0.3s ease", padding: "0 5%"
       }}>
-        <div style={{ maxWidth: 1240, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 74 }}>
+        <div className="nav-header" style={{ maxWidth: 1240, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 74 }}>
           {/* Logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", flexShrink: 0 }} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
             <div style={{
-              width: 42, height: 42, background: "linear-gradient(135deg, #1b5e20 0%, #4caf50 100%)",
-              borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
-              boxShadow: "0 4px 18px rgba(76, 175, 80, 0.4)"
+              width: 38, height: 38, background: "linear-gradient(135deg, #1b5e20 0%, #4caf50 100%)",
+              borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20,
+              boxShadow: "0 4px 18px rgba(76, 175, 80, 0.4)", flexShrink: 0
             }}>
               🌾
             </div>
             <div>
-              <div style={{ fontFamily: "Playfair Display", fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: -0.5 }}>
+              <div className="nav-logo-title" style={{ fontFamily: "Playfair Display", fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: -0.5, whiteSpace: "nowrap" }}>
                 GramSetu <span style={{ color: "#4caf50" }}>AI</span>
               </div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, fontWeight: 600 }}>
+              <div className="nav-subtitle" style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, fontWeight: 600 }}>
                 Village AI Bridge
               </div>
             </div>
@@ -146,12 +146,13 @@ export default function HomePage({ setPage }) {
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <a
               href="https://github.com/yogesh9322/GramSetu-AI"
               target="_blank"
               rel="noopener noreferrer"
               title="GitHub Repository"
+              className="nav-github-btn"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -172,14 +173,14 @@ export default function HomePage({ setPage }) {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
               </svg>
-              <span className="nav-desktop-links">GitHub</span>
+              <span>GitHub</span>
             </a>
             <button
               onClick={() => setPage("login")}
               style={{
                 background: "rgba(255,255,255,0.05)",
                 border: "1px solid rgba(255,255,255,0.15)",
-                color: "#fff", padding: "8px 14px", borderRadius: 10,
+                color: "#fff", padding: "7px 12px", borderRadius: 10,
                 fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s"
               }}
               onMouseEnter={e => { e.target.style.background = "rgba(76,175,80,0.15)"; e.target.style.borderColor = "rgba(76,175,80,0.5)" }}
@@ -190,7 +191,7 @@ export default function HomePage({ setPage }) {
             <button
               onClick={() => setPage("register")}
               className="btn-primary"
-              style={{ padding: "8px 16px", borderRadius: 10, fontSize: 13 }}
+              style={{ padding: "7px 14px", borderRadius: 10, fontSize: 13, whiteSpace: "nowrap" }}
             >
               Start Free ✨
             </button>
@@ -199,7 +200,7 @@ export default function HomePage({ setPage }) {
       </nav>
 
       {/* HERO SECTION */}
-      <section id="hero" className="section-padding" style={{ minHeight: "100vh", display: "flex", alignItems: "center", position: "relative", padding: "100px 5% 40px" }}>
+      <section id="hero" className="hero-section" style={{ minHeight: "100vh", display: "flex", alignItems: "center", position: "relative", padding: "115px 5% 50px" }}>
         {/* Background Radial Lights */}
         <div style={{ position: "absolute", top: "10%", left: "50%", transform: "translateX(-50%)", width: 800, height: 500, background: "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(76,175,80,0.22) 0%, transparent 70%)", pointerEvents: "none" }} />
         <div style={{ position: "absolute", bottom: "10%", right: "5%", width: 400, height: 400, background: "radial-gradient(circle, rgba(139,195,74,0.08) 0%, transparent 70%)", pointerEvents: "none" }} />
@@ -207,40 +208,40 @@ export default function HomePage({ setPage }) {
         <div className="hero-grid" style={{ maxWidth: 1240, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 50, alignItems: "center" }}>
           {/* Left Column */}
           <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(76, 175, 80, 0.12)", border: "1px solid rgba(76, 175, 80, 0.3)", borderRadius: 100, padding: "7px 18px", marginBottom: 28 }}>
+            <div className="hero-badge-pill" style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(76, 175, 80, 0.12)", border: "1px solid rgba(76, 175, 80, 0.3)", borderRadius: 100, padding: "7px 18px", marginBottom: 28 }}>
               <span style={{ width: 8, height: 8, background: "#4caf50", borderRadius: "50%", boxShadow: "0 0 10px #4caf50" }} />
               <span style={{ fontSize: 13, color: "#4caf50", fontWeight: 700, letterSpacing: 0.5 }}>
                 🌾 MULTILINGUAL AI FOR RURAL INDIA
               </span>
             </div>
 
-            <h1 style={{ fontFamily: "Playfair Display", fontSize: "clamp(42px, 5.2vw, 66px)", fontWeight: 900, lineHeight: 1.12, marginBottom: 24 }}>
+            <h1 className="hero-main-title" style={{ fontFamily: "Playfair Display", fontSize: "clamp(38px, 5.2vw, 66px)", fontWeight: 900, lineHeight: 1.12, marginBottom: 24 }}>
               Connecting Villages <br />
               <span className="shimmer-text">To 63+ Government</span> <br />
               Schemes & Benefits
             </h1>
 
-            <p style={{ fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1.7, marginBottom: 36, maxWidth: 540 }}>
+            <p className="hero-main-desc" style={{ fontSize: 18, color: "rgba(255,255,255,0.7)", lineHeight: 1.7, marginBottom: 36, maxWidth: 540 }}>
               Discover eligibility, required documents, and step-by-step guidance in <strong style={{ color: "#fff" }}>Hindi, Marathi, and English</strong> using voice or text AI assistant.
             </p>
 
             {/* Interactive Prompt Simulated Bar */}
-            <div style={{ background: "rgba(22, 33, 25, 0.7)", border: "1px solid rgba(76, 175, 80, 0.3)", borderRadius: 16, padding: "16px 20px", marginBottom: 36, display: "flex", alignItems: "center", gap: 14, boxShadow: "0 8px 30px rgba(0,0,0,0.3)" }}>
+            <div className="hero-live-demo-bar" style={{ background: "rgba(22, 33, 25, 0.7)", border: "1px solid rgba(76, 175, 80, 0.3)", borderRadius: 16, padding: "16px 20px", marginBottom: 36, display: "flex", alignItems: "center", gap: 14, boxShadow: "0 8px 30px rgba(0,0,0,0.3)" }}>
               <span style={{ fontSize: 20 }}>🎤</span>
               <div style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", fontFamily: "'Tiro Devanagari Hindi', 'Plus Jakarta Sans', sans-serif", flex: 1, minHeight: 24 }}>
                 {typedText}<span style={{ borderRight: "2px solid #4caf50" }}>&nbsp;</span>
               </div>
-              <span style={{ background: "rgba(76,175,80,0.2)", color: "#4caf50", padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+              <span style={{ background: "rgba(76,175,80,0.2)", color: "#4caf50", padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
                 Live Demo
               </span>
             </div>
 
             {/* CTA Buttons */}
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <button onClick={() => setPage("register")} className="btn-primary" style={{ padding: "16px 36px", fontSize: 16, borderRadius: 14 }}>
+            <div className="hero-cta-group" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              <button onClick={() => setPage("register")} className="btn-primary" style={{ padding: "14px 32px", fontSize: 15, borderRadius: 14 }}>
                 Launch Free Assistant 🚀
               </button>
-              <button onClick={() => setPage("login")} className="btn-outline" style={{ padding: "16px 28px", fontSize: 16, borderRadius: 14 }}>
+              <button onClick={() => setPage("login")} className="btn-outline" style={{ padding: "14px 26px", fontSize: 15, borderRadius: 14 }}>
                 Demo Credentials →
               </button>
             </div>
