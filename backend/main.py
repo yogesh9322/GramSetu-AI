@@ -83,7 +83,7 @@ def init_database():
             INSERT INTO users (id, name, email, password, language, state, token, created_at, login_count)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
         ''', (demo_id, "Demo Citizen", "demo@gramsetu.ai", demo_hash, "hindi", "Maharashtra", demo_token, datetime.now().isoformat()))
-        print("✓ Created default demo user: demo@gramsetu.ai / demo123")
+        print("[INFO] Created default demo user: demo@gramsetu.ai / demo123")
 
     conn.commit()
     conn.close()
@@ -122,10 +122,10 @@ def migrate_from_json():
         
         # Backup the old file
         os.rename("users.json", "users.json.backup")
-        print("✓ Migrated users from JSON to SQLite database")
+        print("[INFO] Migrated users from JSON to SQLite database")
         
     except Exception as e:
-        print(f"⚠️ Migration failed: {e}")
+        print(f"[WARN] Migration failed: {e}")
 
 # Initialize database on startup
 init_database()
@@ -135,16 +135,16 @@ import threading
 
 @app.on_event("startup")
 async def startup_warmup():
-    """Warm up RAG Vector DB and LLM into memory so user queries are instant"""
+    """Warm up schemes cache and LLM into memory so user queries are instant"""
     def _warm():
         try:
-            print("[WARMUP] Pre-loading FAISS Vector DB and LLM into memory...")
-            from rag_pipeline import load_vector_db, get_llm
-            load_vector_db()
+            print("[WARMUP] Pre-loading schemes cache and Groq LLM...")
+            from rag_pipeline import get_all_schemes, get_llm
+            get_all_schemes()
             get_llm()
-            print("[WARMUP] Background RAG warm-up complete! Responses will now be instant.")
+            print("[WARMUP] Background warm-up complete! Responses will now be instant.")
         except Exception as ex:
-            print(f"[WARMUP] Background warm-up error: {ex}")
+            print(f"[WARMUP] Background warm-up notice: {ex}")
     
     t = threading.Thread(target=_warm, daemon=True)
     t.start()
@@ -178,7 +178,7 @@ def get_user_by_email(email: str):
 
 def get_user_by_token(token: str):
     """Get user by token from database"""
-    print(f"🔍 Looking up token: {token[:20]}...")
+    print(f"[INFO] Looking up token: {token[:20]}...")
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM users WHERE token = ?", (token,))
@@ -198,10 +198,10 @@ def get_user_by_token(token: str):
             'last_login': row[8],
             'login_count': row[9]
         }
-        print(f"✓ Found user: {user.get('email')}")
+        print(f"[INFO] Found user: {user.get('email')}")
         return user
     
-    print("❌ Token not found")
+    print("[INFO] Token not found")
     return None
 
 def create_user(name: str, email: str, password: str, language: str = "hindi", state: str = ""):
@@ -409,10 +409,10 @@ _whisper_model = None
 def get_whisper_model():
     global _whisper_model
     if _whisper_model is None:
-        print("🎙️ Loading Whisper base model into memory...")
+        print("[INFO] Loading Whisper base model into memory...")
         import whisper
         _whisper_model = whisper.load_model("base")
-        print("✅ Whisper base model loaded!")
+        print("[INFO] Whisper base model loaded!")
     return _whisper_model
 
 def clean_text_for_tts(text: str, language: str = "hindi") -> str:
@@ -517,14 +517,14 @@ async def process_voice_audio(audio, credentials):
         tts.write_to_fp(audio_buffer)
         audio_buffer.seek(0)
         audio_size = len(audio_buffer.getvalue())
-        print(f"✓ Audio generated: {audio_size} bytes")
+        print(f"[INFO] Audio generated: {audio_size} bytes")
         
         if audio_size == 0:
             raise Exception("Generated audio is empty")
 
         # Record the voice visit
         record_visit(user_id=user_id, endpoint='/voice-ask-upload')
-        print("✓ Creating streaming response...")
+        print("[INFO] Creating streaming response...")
         return StreamingResponse(
             audio_buffer,
             media_type="audio/mpeg",
@@ -538,7 +538,7 @@ async def process_voice_audio(audio, credentials):
         if os.path.exists(tmp_path):
             try:
                 os.remove(tmp_path)
-                print(f"✓ Cleaned up: {tmp_path}")
+                print(f"[INFO] Cleaned up: {tmp_path}")
             except OSError:
                 pass
 
@@ -549,19 +549,19 @@ async def voice_ask(audio: UploadFile = File(...), credentials: HTTPAuthorizatio
     try:
         return await process_voice_audio(audio, credentials)
     except Exception as e:
-        print(f"❌ Voice-ask error: {e}")
+        print(f"[ERROR] Voice-ask error: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/voice-ask-upload")
 async def voice_ask_upload(audio: UploadFile = File(...), credentials: HTTPAuthorizationCredentials = Depends(security)):
-    print(f"🔍 Voice-ask-upload called with file: {audio.filename if audio else 'None'}")
-    print(f"🔍 Credentials: {credentials.credentials[:20] if credentials else 'None'}...")
+    print(f"[INFO] Voice-ask-upload called with file: {audio.filename if audio else 'None'}")
+    print(f"[INFO] Credentials: {credentials.credentials[:20] if credentials else 'None'}...")
     try:
         return await process_voice_audio(audio, credentials)
     except Exception as e:
-        print(f"❌ Voice-ask-upload error: {e}")
+        print(f"[ERROR] Voice-ask-upload error: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
