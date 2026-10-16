@@ -10,7 +10,15 @@ app = FastAPI(title="GramSetu AI API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://gram-setu-ai.vercel.app",
+        "https://gramsetu-ai.vercel.app"
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -65,6 +73,18 @@ def init_database():
         )
     ''')
     
+    # Seed default demo account so demo login works immediately out of the box
+    cursor.execute("SELECT id FROM users WHERE email = 'demo@gramsetu.ai'")
+    if not cursor.fetchone():
+        demo_id = str(uuid.uuid4())
+        demo_token = str(uuid.uuid4())
+        demo_hash = hashlib.sha256("demo123".encode()).hexdigest()
+        cursor.execute('''
+            INSERT INTO users (id, name, email, password, language, state, token, created_at, login_count)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+        ''', (demo_id, "Demo Citizen", "demo@gramsetu.ai", demo_hash, "hindi", "Maharashtra", demo_token, datetime.now().isoformat()))
+        print("✓ Created default demo user: demo@gramsetu.ai / demo123")
+
     conn.commit()
     conn.close()
 

@@ -12,3 +12,4 @@ gTTS
 PyJWT
 requests
 beautifulsoup4
+python-multipart

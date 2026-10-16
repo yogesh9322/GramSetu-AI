@@ -1,7 +1,6 @@
 import React, { useState, useContext } from "react"
 import { AuthContext } from "../context/AuthContext"
-
-const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
+import { API } from "../config"
 
 export default function LoginPage({ setPage }) {
   const { login } = useContext(AuthContext)
@@ -24,7 +23,11 @@ export default function LoginPage({ setPage }) {
       login(data.user, data.token)
     } catch (err) {
       if (err.name === "TypeError" || err.message === "Failed to fetch") {
-        setError("Backend server is not running! Please start the backend server using: uvicorn main:app --reload")
+        setError(
+          window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+            ? "Backend server is not running! Please start the backend server using: uvicorn main:app --reload"
+            : "Backend server is waking up. Render free instances take ~30 seconds to wake up from sleep — please wait a moment and try again."
+        )
       } else {
         setError(err.message)
       }

@@ -4,7 +4,7 @@ import { ALL_SCHEMES, CAT_COLORS } from "../data/schemesData"
 import SchemeModal from "../components/SchemeModal"
 import axios from "axios"
 
-const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
+import { API } from "../config"
 
 function FormattedAnswer({ text, lang = "hindi" }) {
   const [copied, setCopied] = useState(false)
