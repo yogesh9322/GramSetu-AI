@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-import json, os, uuid, hashlib, io, tempfile, sqlite3, base64, secrets, smtplib, re
+import json, os, uuid, hashlib, io, tempfile, sqlite3, base64, secrets, smtplib, re, requests
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta
@@ -343,6 +343,13 @@ async def register(req: RegisterRequest):
     # Record the registration visit
     record_visit(user_id=user['id'], endpoint='/auth/register')
     
+    # Send welcome email asynchronously so user registration returns instantly
+    try:
+        import threading
+        threading.Thread(target=send_welcome_email, args=(req.email, req.name, req.language), daemon=True).start()
+    except Exception as em_err:
+        print(f"[AUTH WARN] Could not trigger welcome email: {em_err}")
+    
     return {
         "token": user['token'],
         "user": {
@@ -411,12 +418,101 @@ RESEND_FROM = os.getenv("RESEND_FROM", "GramSetu AI <onboarding@resend.dev>")
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://gram-setu-ai.vercel.app").rstrip("/")
 
-def send_password_reset_email(to_email: str, reset_url: str) -> bool:
+def send_email(to_email: str, subject: str, html_content: str, plain_text: str) -> bool:
     """
-    Send a professional HTML and plain-text password reset email.
-    Supports Resend HTTP API (recommended for Render free tier), Brevo API, or standard SMTP.
+    Multi-channel email dispatcher:
+    1. Resend HTTP API (Port 443 - Recommended on Render where SMTP ports are blocked)
+    2. Brevo HTTP API (Port 443)
+    3. SMTP (Gmail / Custom SMTP)
     Returns True if sent successfully, False otherwise.
     """
+    # 1. Try Resend HTTP API
+    resend_key = os.getenv("RESEND_API_KEY") or RESEND_API_KEY
+    if resend_key:
+        try:
+            headers = {
+                "Authorization": f"Bearer {resend_key}",
+                "Content-Type": "application/json"
+            }
+            sender = os.getenv("RESEND_FROM") or RESEND_FROM
+            payload = {
+                "from": sender,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+                "text": plain_text
+            }
+            resp = requests.post("https://api.resend.com/emails", json=payload, headers=headers, timeout=12)
+            if resp.status_code in (200, 201):
+                print(f"[AUTH] Successfully sent email '{subject}' via Resend to {to_email}")
+                return True
+            else:
+                print(f"[AUTH] Resend API error ({resp.status_code}): {resp.text}")
+        except Exception as e:
+            print(f"[AUTH] Exception sending email via Resend: {e}")
+
+    # 2. Try Brevo HTTP API (Port 443)
+    brevo_key = os.getenv("BREVO_API_KEY") or BREVO_API_KEY
+    if brevo_key:
+        try:
+            headers = {
+                "api-key": brevo_key,
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "sender": {"name": "GramSetu AI", "email": os.getenv("BREVO_FROM_EMAIL", SMTP_USER or "support@gramsetu.ai")},
+                "to": [{"email": to_email}],
+                "subject": subject,
+                "htmlContent": html_content,
+                "textContent": plain_text
+            }
+            resp = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers, timeout=12)
+            if resp.status_code in (200, 201):
+                print(f"[AUTH] Successfully sent email '{subject}' via Brevo to {to_email}")
+                return True
+            else:
+                print(f"[AUTH] Brevo API error ({resp.status_code}): {resp.text}")
+        except Exception as e:
+            print(f"[AUTH] Exception sending email via Brevo: {e}")
+
+    # 3. Fallback to standard SMTP (Gmail / Custom SMTP)
+    smtp_user = os.getenv("SMTP_USER") or SMTP_USER
+    smtp_pass = os.getenv("SMTP_PASSWORD") or SMTP_PASSWORD
+    if smtp_user and smtp_pass:
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = os.getenv("EMAILS_FROM") or EMAILS_FROM or smtp_user
+            msg["To"] = to_email
+
+            part1 = MIMEText(plain_text, "plain", "utf-8")
+            part2 = MIMEText(html_content, "html", "utf-8")
+            msg.attach(part1)
+            msg.attach(part2)
+
+            host = os.getenv("SMTP_HOST") or SMTP_HOST
+            port = int(os.getenv("SMTP_PORT") or SMTP_PORT)
+
+            if port == 465:
+                with smtplib.SMTP_SSL(host, port, timeout=12) as server:
+                    server.login(smtp_user, smtp_pass)
+                    server.sendmail(msg["From"], to_email, msg.as_string())
+            else:
+                with smtplib.SMTP(host, port, timeout=12) as server:
+                    server.starttls()
+                    server.login(smtp_user, smtp_pass)
+                    server.sendmail(msg["From"], to_email, msg.as_string())
+
+            print(f"[AUTH] Successfully sent email '{subject}' via SMTP to {to_email}")
+            return True
+        except Exception as e:
+            print(f"[AUTH] Failed to send email via SMTP ({host}:{port}): {e}")
+
+    print(f"[AUTH] (Notice) Could not send email to {to_email}. Ensure RESEND_API_KEY or SMTP_USER/SMTP_PASSWORD is set in Render Environment Variables.")
+    return False
+
+def send_password_reset_email(to_email: str, reset_url: str) -> bool:
+    """Send password reset email with secure 20-min single-use link."""
     subject = "Reset Your Password - GramSetu AI"
     
     html_content = f"""<!DOCTYPE html>
@@ -485,91 +581,99 @@ https://gram-setu-ai.vercel.app
 """
 
     print(f"[AUTH] Generated password reset link for {to_email}: {reset_url}")
+    return send_email(to_email, subject, html_content, plain_text)
 
-    # 1. Try Resend HTTP API (Port 443 - Recommended for Render free tier where SMTP ports are blocked)
-    resend_key = os.getenv("RESEND_API_KEY") or RESEND_API_KEY
-    if resend_key:
-        try:
-            headers = {
-                "Authorization": f"Bearer {resend_key}",
-                "Content-Type": "application/json"
-            }
-            sender = os.getenv("RESEND_FROM") or RESEND_FROM
-            payload = {
-                "from": sender,
-                "to": [to_email],
-                "subject": subject,
-                "html": html_content,
-                "text": plain_text
-            }
-            resp = requests.post("https://api.resend.com/emails", json=payload, headers=headers, timeout=12)
-            if resp.status_code in (200, 201):
-                print(f"[AUTH] Successfully sent password reset email via Resend to {to_email}")
-                return True
-            else:
-                print(f"[AUTH] Resend API error ({resp.status_code}): {resp.text}")
-        except Exception as e:
-            print(f"[AUTH] Exception sending email via Resend: {e}")
+def send_welcome_email(to_email: str, name: str, language: str = "hindi") -> bool:
+    """Send a professional welcome email to newly registered users."""
+    subject = f"Welcome to GramSetu AI, {name}! 🌾 Your Account is Ready"
+    frontend_url = FRONTEND_URL or "https://gram-setu-ai.vercel.app"
+    
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to GramSetu AI</title>
+</head>
+<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #070a08; margin: 0; padding: 24px 12px; color: #ffffff;">
+  <div style="max-width: 580px; margin: 0 auto; background: #0f1712; border: 1px solid rgba(76, 175, 80, 0.3); border-radius: 20px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.6);">
+    <div style="background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%); padding: 36px 24px; text-align: center;">
+      <div style="width: 58px; height: 58px; margin: 0 auto 12px; background: rgba(255,255,255,0.2); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 32px; line-height: 58px;">🌾</div>
+      <span style="display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 14px; border-radius: 100px; font-size: 11px; font-weight: 700; color: #e8f5e9; text-transform: uppercase; letter-spacing: 1px;">Official Registration</span>
+      <h1 style="margin: 12px 0 0; font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">Welcome to GramSetu AI!</h1>
+    </div>
+    
+    <div style="padding: 32px 28px; font-size: 15px; line-height: 1.7; color: #d1d5db;">
+      <p style="margin: 0 0 16px; font-size: 17px; color: #ffffff;">Hello <strong>{name}</strong>,</p>
+      <p style="margin: 0 0 20px;">
+        Congratulations! Your <strong>GramSetu AI</strong> account has been successfully created. You now have instant access to verified information for <strong>63+ government welfare schemes</strong>, farmer subsidies, and rural empowerment initiatives.
+      </p>
 
-    # 2. Try Brevo HTTP API (Port 443)
-    brevo_key = os.getenv("BREVO_API_KEY") or BREVO_API_KEY
-    if brevo_key:
-        try:
-            headers = {
-                "api-key": brevo_key,
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "sender": {"name": "GramSetu AI", "email": os.getenv("BREVO_FROM_EMAIL", SMTP_USER or "support@gramsetu.ai")},
-                "to": [{"email": to_email}],
-                "subject": subject,
-                "htmlContent": html_content,
-                "textContent": plain_text
-            }
-            resp = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers, timeout=12)
-            if resp.status_code in (200, 201):
-                print(f"[AUTH] Successfully sent password reset email via Brevo to {to_email}")
-                return True
-            else:
-                print(f"[AUTH] Brevo API error ({resp.status_code}): {resp.text}")
-        except Exception as e:
-            print(f"[AUTH] Exception sending email via Brevo: {e}")
+      <div style="background: rgba(76, 175, 80, 0.08); border: 1px solid rgba(76, 175, 80, 0.25); border-radius: 14px; padding: 18px 20px; margin: 24px 0;">
+        <div style="font-size: 13px; font-weight: 700; color: #81c784; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;">📋 Your Account Details</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr>
+            <td style="padding: 6px 0; color: #9ca3af; width: 40%;">Full Name:</td>
+            <td style="padding: 6px 0; color: #ffffff; font-weight: 600;">{name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #9ca3af;">Email Address:</td>
+            <td style="padding: 6px 0; color: #ffffff; font-weight: 600;">{to_email}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #9ca3af;">Preferred Language:</td>
+            <td style="padding: 6px 0; color: #4caf50; font-weight: 700;">{language.title()}</td>
+          </tr>
+        </table>
+      </div>
 
-    # 3. Fallback to standard SMTP (Gmail / Custom SMTP)
-    smtp_user = os.getenv("SMTP_USER") or SMTP_USER
-    smtp_pass = os.getenv("SMTP_PASSWORD") or SMTP_PASSWORD
-    if smtp_user and smtp_pass:
-        try:
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = subject
-            msg["From"] = os.getenv("EMAILS_FROM") or EMAILS_FROM or smtp_user
-            msg["To"] = to_email
+      <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin: 24px 0 12px;">🌟 What You Can Do with GramSetu AI:</div>
+      <ul style="margin: 0 0 24px 0; padding-left: 20px; color: #d1d5db; font-size: 14px; line-height: 1.9;">
+        <li><strong>Explore 63+ Schemes:</strong> PM Kisan, Ayushman Bharat, PM Awas, Fasal Bima, and more.</li>
+        <li><strong>Eligibility & Documents:</strong> Instant checklist of exact documents and who can apply.</li>
+        <li><strong>Ask in Your Language:</strong> Type or speak questions in <strong>Hindi, Marathi, or English</strong>.</li>
+        <li><strong>Step-by-Step Guidance:</strong> Clear instructions on how and where to submit applications.</li>
+      </ul>
 
-            part1 = MIMEText(plain_text, "plain")
-            part2 = MIMEText(html_content, "html")
-            msg.attach(part1)
-            msg.attach(part2)
+      <div style="text-align: center; margin: 32px 0 16px;">
+        <a href="{frontend_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: #ffffff !important; text-decoration: none; padding: 15px 36px; font-size: 16px; font-weight: 700; border-radius: 12px; box-shadow: 0 6px 24px rgba(76, 175, 80, 0.45);">
+          Start Exploring Schemes →
+        </a>
+      </div>
+    </div>
+    
+    <div style="padding: 20px 24px; background: #070a08; border-top: 1px solid rgba(255,255,255,0.06); text-align: center; font-size: 12px; color: #6b7280;">
+      <p style="margin: 0 0 6px;">© {datetime.now().year} GramSetu AI • Bridging Villages to 63+ Government Schemes</p>
+      <p style="margin: 0;">Empowering Rural Citizens Across India • 100% Free & Open Access</p>
+    </div>
+  </div>
+</body>
+</html>"""
 
-            host = os.getenv("SMTP_HOST") or SMTP_HOST
-            port = int(os.getenv("SMTP_PORT") or SMTP_PORT)
+    plain_text = f"""Welcome to GramSetu AI, {name}!
 
-            if port == 465:
-                with smtplib.SMTP_SSL(host, port, timeout=12) as server:
-                    server.login(smtp_user, smtp_pass)
-                    server.sendmail(msg["From"], to_email, msg.as_string())
-            else:
-                with smtplib.SMTP(host, port, timeout=12) as server:
-                    server.starttls()
-                    server.login(smtp_user, smtp_pass)
-                    server.sendmail(msg["From"], to_email, msg.as_string())
+Congratulations! Your GramSetu AI account has been successfully created.
 
-            print(f"[AUTH] Successfully sent password reset email via SMTP to {to_email}")
-            return True
-        except Exception as e:
-            print(f"[AUTH] Failed to send email via SMTP ({host}:{port}): {e}")
+Account Details:
+- Name: {name}
+- Email: {to_email}
+- Preferred Language: {language.title()}
 
-    print("[AUTH] (Notice) No email service credentials configured. Set RESEND_API_KEY or SMTP_USER/SMTP_PASSWORD in Render Environment Variables.")
-    return False
+What you can do:
+1. Search & Explore 63+ Central & State Schemes
+2. Check eligibility criteria and required documents checklist
+3. Ask questions by typing or speaking in Hindi, Marathi, or English
+4. Get clear step-by-step application guidance
+
+Access your dashboard:
+{frontend_url}
+
+--
+GramSetu AI Team
+Multilingual Government Scheme Assistant
+"""
+
+    return send_email(to_email, subject, html_content, plain_text)
 
 class ForgotPasswordRequest(BaseModel):
     email: str

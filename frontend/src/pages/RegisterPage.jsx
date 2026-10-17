@@ -2,12 +2,31 @@ import React, { useState, useContext } from "react"
 import { AuthContext } from "../context/AuthContext"
 import { API } from "../config"
 
+const EyeIcon = ({ visible, size = 19 }) => {
+  if (visible) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    )
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  )
+}
+
 export default function RegisterPage({ setPage }) {
   const { login } = useContext(AuthContext)
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "", language: "hindi", state: "Maharashtra" })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [step, setStep] = useState(1)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   const STATES = ["Maharashtra", "Uttar Pradesh", "Bihar", "Madhya Pradesh", "Rajasthan", "Gujarat", "Punjab", "Haryana", "Karnataka", "Tamil Nadu", "Other"]
 
@@ -218,26 +237,62 @@ export default function RegisterPage({ setPage }) {
                 <label style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 8 }}>
                   Password
                 </label>
-                <input
-                  type="password"
-                  value={form.password}
-                  onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-                  placeholder="Min. 6 characters"
-                  style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 15, outline: "none" }}
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={form.password}
+                    onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                    placeholder="Min. 6 characters"
+                    style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12, padding: "14px 46px 14px 16px", color: "#fff", fontSize: 15, outline: "none" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    style={{
+                      position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
+                      background: "none", border: "none", cursor: "pointer", padding: 4,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      color: showPassword ? "#4caf50" : "rgba(255,255,255,0.45)",
+                      transition: "color 0.2s"
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = "#4caf50"}
+                    onMouseLeave={e => e.currentTarget.style.color = showPassword ? "#4caf50" : "rgba(255,255,255,0.45)"}
+                  >
+                    <EyeIcon visible={showPassword} size={19} />
+                  </button>
+                </div>
               </div>
 
               <div style={{ marginBottom: 28 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 8 }}>
                   Confirm Password
                 </label>
-                <input
-                  type="password"
-                  value={form.confirm}
-                  onChange={e => setForm(p => ({ ...p, confirm: e.target.value }))}
-                  placeholder="Re-enter password"
-                  style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 15, outline: "none" }}
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showConfirm ? "text" : "password"}
+                    value={form.confirm}
+                    onChange={e => setForm(p => ({ ...p, confirm: e.target.value }))}
+                    placeholder="Re-enter password"
+                    style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12, padding: "14px 46px 14px 16px", color: "#fff", fontSize: 15, outline: "none" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    aria-label={showConfirm ? "Hide password" : "Show password"}
+                    style={{
+                      position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
+                      background: "none", border: "none", cursor: "pointer", padding: 4,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      color: showConfirm ? "#4caf50" : "rgba(255,255,255,0.45)",
+                      transition: "color 0.2s"
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = "#4caf50"}
+                    onMouseLeave={e => e.currentTarget.style.color = showConfirm ? "#4caf50" : "rgba(255,255,255,0.45)"}
+                  >
+                    <EyeIcon visible={showConfirm} size={19} />
+                  </button>
+                </div>
                 {form.confirm && form.password === form.confirm && form.password.length >= 6 && (
                   <div style={{ fontSize: 12, color: "#4caf50", marginTop: 8, fontWeight: 600 }}>✅ Passwords match!</div>
                 )}
