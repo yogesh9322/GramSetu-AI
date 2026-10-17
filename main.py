@@ -412,17 +412,94 @@ EMAILS_FROM = os.getenv("EMAILS_FROM", os.getenv("SMTP_FROM", SMTP_USER or "Gram
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 RESEND_FROM = os.getenv("RESEND_FROM", "GramSetu AI <onboarding@resend.dev>")
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+BREVO_FROM_EMAIL = os.getenv("BREVO_FROM_EMAIL", "yp178281@gmail.com")
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
+SENDGRID_FROM_EMAIL = os.getenv("SENDGRID_FROM_EMAIL", "yp178281@gmail.com")
+GOOGLE_MAIL_WEBHOOK_URL = os.getenv("GOOGLE_MAIL_WEBHOOK_URL", "")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://gram-setu-ai.vercel.app").rstrip("/")
 
 def send_email(to_email: str, subject: str, html_content: str, plain_text: str) -> bool:
     """
     Multi-channel email dispatcher:
-    1. Resend HTTP API (Port 443 - Recommended on Render where SMTP ports are blocked)
-    2. Brevo HTTP API (Port 443)
-    3. SMTP (Gmail / Custom SMTP)
+    1. Google Mail Webhook (Port 443 HTTPS - Sends natively from Gmail to ANY email address, free)
+    2. Brevo HTTP API (Port 443 HTTPS - Can send to ANY email address with verified sender)
+    3. SendGrid HTTP API (Port 443 HTTPS - Single sender verification)
+    4. Resend HTTP API (Port 443 HTTPS - Note: onboarding@resend.dev only permits sending to account owner)
+    5. SMTP (Gmail / Custom SMTP)
     Returns True if sent successfully, False otherwise.
     """
-    # 1. Try Resend HTTP API
+    # 1. Try Google Mail Webhook (Sends directly via user's Gmail to ANY recipient in the world)
+    google_webhook = os.getenv("GOOGLE_MAIL_WEBHOOK_URL") or GOOGLE_MAIL_WEBHOOK_URL
+    if google_webhook:
+        try:
+            payload = {
+                "to": to_email,
+                "subject": subject,
+                "html": html_content,
+                "text": plain_text
+            }
+            resp = requests.post(google_webhook, json=payload, headers={"Content-Type": "application/json"}, timeout=12, allow_redirects=True)
+            if resp.status_code in (200, 201, 302):
+                print(f"[AUTH] Successfully sent email '{subject}' via Google Mail Webhook to {to_email}")
+                return True
+            else:
+                print(f"[AUTH] Google Webhook error ({resp.status_code}): {resp.text}")
+        except Exception as e:
+            print(f"[AUTH] Exception sending email via Google Webhook: {e}")
+
+    # 2. Try Brevo HTTP API (Port 443)
+    brevo_key = os.getenv("BREVO_API_KEY") or BREVO_API_KEY
+    if brevo_key:
+        try:
+            headers = {
+                "api-key": brevo_key,
+                "Content-Type": "application/json"
+            }
+            sender_email = os.getenv("BREVO_FROM_EMAIL") or BREVO_FROM_EMAIL or "yp178281@gmail.com"
+            payload = {
+                "sender": {"name": "GramSetu AI", "email": sender_email},
+                "to": [{"email": to_email}],
+                "subject": subject,
+                "htmlContent": html_content,
+                "textContent": plain_text
+            }
+            resp = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers, timeout=12)
+            if resp.status_code in (200, 201):
+                print(f"[AUTH] Successfully sent email '{subject}' via Brevo to {to_email}")
+                return True
+            else:
+                print(f"[AUTH] Brevo API error ({resp.status_code}): {resp.text}")
+        except Exception as e:
+            print(f"[AUTH] Exception sending email via Brevo: {e}")
+
+    # 3. Try SendGrid HTTP API (Port 443)
+    sendgrid_key = os.getenv("SENDGRID_API_KEY") or SENDGRID_API_KEY
+    if sendgrid_key:
+        try:
+            headers = {
+                "Authorization": f"Bearer {sendgrid_key}",
+                "Content-Type": "application/json"
+            }
+            sg_from = os.getenv("SENDGRID_FROM_EMAIL") or SENDGRID_FROM_EMAIL or "yp178281@gmail.com"
+            payload = {
+                "personalizations": [{"to": [{"email": to_email}]}],
+                "from": {"email": sg_from, "name": "GramSetu AI"},
+                "subject": subject,
+                "content": [
+                    {"type": "text/plain", "value": plain_text},
+                    {"type": "text/html", "value": html_content}
+                ]
+            }
+            resp = requests.post("https://api.sendgrid.com/v3/mail/send", json=payload, headers=headers, timeout=12)
+            if resp.status_code in (200, 201, 202):
+                print(f"[AUTH] Successfully sent email '{subject}' via SendGrid to {to_email}")
+                return True
+            else:
+                print(f"[AUTH] SendGrid API error ({resp.status_code}): {resp.text}")
+        except Exception as e:
+            print(f"[AUTH] Exception sending email via SendGrid: {e}")
+
+    # 4. Try Resend HTTP API
     resend_key = os.getenv("RESEND_API_KEY") or RESEND_API_KEY
     if resend_key:
         try:
@@ -447,31 +524,7 @@ def send_email(to_email: str, subject: str, html_content: str, plain_text: str) 
         except Exception as e:
             print(f"[AUTH] Exception sending email via Resend: {e}")
 
-    # 2. Try Brevo HTTP API (Port 443)
-    brevo_key = os.getenv("BREVO_API_KEY") or BREVO_API_KEY
-    if brevo_key:
-        try:
-            headers = {
-                "api-key": brevo_key,
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "sender": {"name": "GramSetu AI", "email": os.getenv("BREVO_FROM_EMAIL", SMTP_USER or "support@gramsetu.ai")},
-                "to": [{"email": to_email}],
-                "subject": subject,
-                "htmlContent": html_content,
-                "textContent": plain_text
-            }
-            resp = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers, timeout=12)
-            if resp.status_code in (200, 201):
-                print(f"[AUTH] Successfully sent email '{subject}' via Brevo to {to_email}")
-                return True
-            else:
-                print(f"[AUTH] Brevo API error ({resp.status_code}): {resp.text}")
-        except Exception as e:
-            print(f"[AUTH] Exception sending email via Brevo: {e}")
-
-    # 3. Fallback to standard SMTP (Gmail / Custom SMTP)
+    # 5. Fallback to standard SMTP (Gmail / Custom SMTP)
     smtp_user = os.getenv("SMTP_USER") or SMTP_USER
     smtp_pass = os.getenv("SMTP_PASSWORD") or SMTP_PASSWORD
     if smtp_user and smtp_pass:
@@ -504,7 +557,7 @@ def send_email(to_email: str, subject: str, html_content: str, plain_text: str) 
         except Exception as e:
             print(f"[AUTH] Failed to send email via SMTP ({host}:{port}): {e}")
 
-    print(f"[AUTH] (Notice) Could not send email to {to_email}. Ensure RESEND_API_KEY or SMTP_USER/SMTP_PASSWORD is set in Render Environment Variables.")
+    print(f"[AUTH] (Notice) Could not send email to {to_email}. Ensure a valid email provider (GOOGLE_MAIL_WEBHOOK_URL, BREVO_API_KEY, RESEND_API_KEY, or SMTP) is set.")
     return False
 
 def send_password_reset_email(to_email: str, reset_url: str) -> bool:
@@ -703,8 +756,10 @@ async def forgot_password(req: ForgotPasswordRequest):
     user = get_user_by_email(email)
 
     has_email_service = bool(
+        os.getenv("GOOGLE_MAIL_WEBHOOK_URL") or
+        os.getenv("BREVO_API_KEY") or
+        os.getenv("SENDGRID_API_KEY") or
         os.getenv("RESEND_API_KEY") or 
-        os.getenv("BREVO_API_KEY") or 
         (os.getenv("SMTP_USER") and os.getenv("SMTP_PASSWORD"))
     )
 
@@ -729,21 +784,27 @@ async def forgot_password(req: ForgotPasswordRequest):
 
         reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
 
+        # Dispatch email and check status
+        email_sent = False
         if has_email_service:
-            # Dispatch email asynchronously in background thread
-            threading.Thread(target=send_password_reset_email, args=(email, reset_link), daemon=True).start()
+            try:
+                email_sent = send_password_reset_email(email, reset_link)
+            except Exception as e:
+                print(f"[AUTH ERROR] Failed dispatching reset email: {e}")
+
+        if email_sent:
             return {
                 "status": "success",
                 "email_sent": True,
                 "message": f"A password reset link has been dispatched to {email}. Please check your inbox and spam folder."
             }
         else:
-            print(f"[AUTH] (No email provider configured on Render) Reset link: {reset_link}")
+            print(f"[AUTH NOTICE] Email delivery to {email} was not accepted by email provider (e.g. testing domain restrictions). Direct Reset URL: {reset_link}")
             return {
                 "status": "success",
                 "email_sent": False,
                 "dev_reset_url": reset_link,
-                "message": "Password reset link generated! Since an automated email service is not yet configured on the server, you can use the direct link below to reset your password immediately."
+                "message": f"Your password reset link is ready! Since the email provider restricted direct delivery to {email} (testing domain policy), you can reset your password immediately using the link below:"
             }
     else:
         print(f"[AUTH] Password reset requested for non-existent email: {email}")
@@ -818,6 +879,32 @@ async def reset_password(req: ResetPasswordRequest):
     return {
         "status": "success",
         "message": "Your password has been successfully reset! You can now log in with your new password."
+    }
+
+@app.get("/auth/test-email")
+async def test_email_endpoint(email: str = "yp178281@gmail.com"):
+    """Diagnostic endpoint to test email delivery and inspect provider status."""
+    email = email.strip().lower()
+    subject = "GramSetu AI - Live Email Delivery Test 🌾"
+    html_content = f"""<div style="font-family: Arial, sans-serif; padding: 20px; background: #0f1712; color: #fff; border-radius: 12px; border: 1px solid #4caf50;">
+      <h2 style="color: #4caf50;">🌾 GramSetu AI Email Test Successful!</h2>
+      <p>Congratulations, email delivery to <strong>{email}</strong> is working properly.</p>
+      <p style="font-size: 12px; color: #9ca3af;">Sent at: {datetime.now().isoformat()}</p>
+    </div>"""
+    plain_text = f"GramSetu AI Email Test Successful! Delivery to {email} is functioning properly at {datetime.now().isoformat()}."
+    
+    success = send_email(email, subject, html_content, plain_text)
+    return {
+        "recipient": email,
+        "delivered": success,
+        "configured_providers": {
+            "google_mail_webhook": bool(os.getenv("GOOGLE_MAIL_WEBHOOK_URL")),
+            "brevo": bool(os.getenv("BREVO_API_KEY")),
+            "sendgrid": bool(os.getenv("SENDGRID_API_KEY")),
+            "resend": bool(os.getenv("RESEND_API_KEY")),
+            "smtp": bool(os.getenv("SMTP_USER") and os.getenv("SMTP_PASSWORD"))
+        },
+        "note": "If using Resend without a verified domain, delivery is strictly limited to the account owner (yp178281@gmail.com). Use Google Mail Webhook or Brevo to send to ANY user without a domain."
     }
 
 # ── Ask Endpoint ───────────────────────────────────────────────
