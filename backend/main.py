@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
@@ -960,7 +960,6 @@ async def process_voice_audio(audio, credentials):
             except OSError:
                 pass
 
-from fastapi import UploadFile, File
 
 @app.post("/voice-ask")
 async def voice_ask(audio: UploadFile = File(...), credentials: HTTPAuthorizationCredentials = Depends(security)):
