@@ -507,7 +507,13 @@ def send_email(to_email: str, subject: str, html_content: str, plain_text: str) 
                 "Authorization": f"Bearer {resend_key}",
                 "Content-Type": "application/json"
             }
-            sender = os.getenv("RESEND_FROM") or RESEND_FROM
+            # Use custom verified domain from EMAILS_FROM if provided, else fallback to RESEND_FROM
+            custom_from = os.getenv("EMAILS_FROM") or os.getenv("RESEND_FROM") or RESEND_FROM
+            if "@" in custom_from and "<" not in custom_from:
+                sender = f"GramSetu AI <{custom_from}>"
+            else:
+                sender = custom_from or "GramSetu AI <onboarding@resend.dev>"
+
             payload = {
                 "from": sender,
                 "to": [to_email],
@@ -531,7 +537,14 @@ def send_email(to_email: str, subject: str, html_content: str, plain_text: str) 
         try:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
-            msg["From"] = os.getenv("EMAILS_FROM") or EMAILS_FROM or smtp_user
+            
+            raw_from = os.getenv("EMAILS_FROM") or EMAILS_FROM or smtp_user
+            if "@" in raw_from and "<" not in raw_from:
+                from_header = f"GramSetu AI <{raw_from}>"
+            else:
+                from_header = raw_from or f"GramSetu AI <{smtp_user}>"
+
+            msg["From"] = from_header
             msg["To"] = to_email
 
             part1 = MIMEText(plain_text, "plain", "utf-8")
@@ -539,21 +552,38 @@ def send_email(to_email: str, subject: str, html_content: str, plain_text: str) 
             msg.attach(part1)
             msg.attach(part2)
 
-            host = os.getenv("SMTP_HOST") or SMTP_HOST
-            port = int(os.getenv("SMTP_PORT") or SMTP_PORT)
+            host = os.getenv("SMTP_HOST") or SMTP_HOST or "smtp.gmail.com"
+            port = int(os.getenv("SMTP_PORT") or SMTP_PORT or 587)
 
-            if port == 465:
-                with smtplib.SMTP_SSL(host, port, timeout=12) as server:
-                    server.login(smtp_user, smtp_pass)
-                    server.sendmail(msg["From"], to_email, msg.as_string())
-            else:
-                with smtplib.SMTP(host, port, timeout=12) as server:
-                    server.starttls()
-                    server.login(smtp_user, smtp_pass)
-                    server.sendmail(msg["From"], to_email, msg.as_string())
+            connected = False
+            try:
+                if port == 465:
+                    with smtplib.SMTP_SSL(host, port, timeout=10) as server:
+                        server.login(smtp_user, smtp_pass)
+                        server.sendmail(from_header, to_email, msg.as_string())
+                        connected = True
+                else:
+                    with smtplib.SMTP(host, port, timeout=10) as server:
+                        server.starttls()
+                        server.login(smtp_user, smtp_pass)
+                        server.sendmail(from_header, to_email, msg.as_string())
+                        connected = True
+            except Exception as first_smtp_err:
+                print(f"[AUTH] SMTP port {port} attempt failed: {first_smtp_err}")
+                # If port 587 was unreachable, attempt port 465 with SSL
+                if port != 465:
+                    try:
+                        print(f"[AUTH] Retrying SMTP via SSL on {host}:465...")
+                        with smtplib.SMTP_SSL(host, 465, timeout=10) as ssl_server:
+                            ssl_server.login(smtp_user, smtp_pass)
+                            ssl_server.sendmail(from_header, to_email, msg.as_string())
+                            connected = True
+                    except Exception as ssl_err:
+                        print(f"[AUTH] SMTP port 465 retry also failed: {ssl_err}")
 
-            print(f"[AUTH] Successfully sent email '{subject}' via SMTP to {to_email}")
-            return True
+            if connected:
+                print(f"[AUTH] Successfully sent email '{subject}' via SMTP to {to_email}")
+                return True
         except Exception as e:
             print(f"[AUTH] Failed to send email via SMTP ({host}:{port}): {e}")
 
