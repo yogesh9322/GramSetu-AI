@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, status, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
@@ -328,7 +328,7 @@ class AskRequest(BaseModel):
 
 # ── Auth Endpoints ─────────────────────────────────────────────
 @app.post("/auth/register")
-async def register(req: RegisterRequest):
+async def register(req: RegisterRequest, background_tasks: BackgroundTasks):
     # Check if user already exists
     existing_user = get_user_by_email(req.email)
     if existing_user:
@@ -343,12 +343,8 @@ async def register(req: RegisterRequest):
     # Record the registration visit
     record_visit(user_id=user['id'], endpoint='/auth/register')
     
-    # Send welcome email asynchronously so user registration returns instantly
-    try:
-        import threading
-        threading.Thread(target=send_welcome_email, args=(req.email, req.name, req.language), daemon=True).start()
-    except Exception as em_err:
-        print(f"[AUTH WARN] Could not trigger welcome email: {em_err}")
+    # Send welcome email asynchronously via FastAPI background_tasks (including username & password)
+    background_tasks.add_task(send_welcome_email, req.email, req.name, req.password, req.language)
     
     return {
         "token": user['token'],
@@ -583,9 +579,9 @@ https://gram-setu-ai.vercel.app
     print(f"[AUTH] Generated password reset link for {to_email}: {reset_url}")
     return send_email(to_email, subject, html_content, plain_text)
 
-def send_welcome_email(to_email: str, name: str, language: str = "hindi") -> bool:
-    """Send a professional welcome email to newly registered users."""
-    subject = f"Welcome to GramSetu AI, {name}! 🌾 Your Account is Ready"
+def send_welcome_email(to_email: str, name: str, password: str, language: str = "hindi") -> bool:
+    """Send a professional welcome email with username and password to newly registered users."""
+    subject = f"Welcome to GramSetu AI, {name}! 🌾 Your Account Credentials"
     frontend_url = FRONTEND_URL or "https://gram-setu-ai.vercel.app"
     
     html_content = f"""<!DOCTYPE html>
@@ -609,22 +605,29 @@ def send_welcome_email(to_email: str, name: str, language: str = "hindi") -> boo
         Congratulations! Your <strong>GramSetu AI</strong> account has been successfully created. You now have instant access to verified information for <strong>63+ government welfare schemes</strong>, farmer subsidies, and rural empowerment initiatives.
       </p>
 
-      <div style="background: rgba(76, 175, 80, 0.08); border: 1px solid rgba(76, 175, 80, 0.25); border-radius: 14px; padding: 18px 20px; margin: 24px 0;">
-        <div style="font-size: 13px; font-weight: 700; color: #81c784; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;">📋 Your Account Details</div>
+      <div style="background: rgba(76, 175, 80, 0.08); border: 1px solid rgba(76, 175, 80, 0.35); border-radius: 14px; padding: 20px 22px; margin: 24px 0;">
+        <div style="font-size: 13px; font-weight: 700; color: #81c784; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px;">🔑 Your Login Credentials</div>
         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
           <tr>
-            <td style="padding: 6px 0; color: #9ca3af; width: 40%;">Full Name:</td>
-            <td style="padding: 6px 0; color: #ffffff; font-weight: 600;">{name}</td>
+            <td style="padding: 8px 0; color: #9ca3af; width: 38%;">Full Name:</td>
+            <td style="padding: 8px 0; color: #ffffff; font-weight: 600;">{name}</td>
           </tr>
           <tr>
-            <td style="padding: 6px 0; color: #9ca3af;">Email Address:</td>
-            <td style="padding: 6px 0; color: #ffffff; font-weight: 600;">{to_email}</td>
+            <td style="padding: 8px 0; color: #9ca3af;">Username / Email:</td>
+            <td style="padding: 8px 0; font-weight: 700; font-family: monospace; font-size: 15px; color: #81c784;">{to_email}</td>
           </tr>
           <tr>
-            <td style="padding: 6px 0; color: #9ca3af;">Preferred Language:</td>
-            <td style="padding: 6px 0; color: #4caf50; font-weight: 700;">{language.title()}</td>
+            <td style="padding: 8px 0; color: #9ca3af;">Password:</td>
+            <td style="padding: 8px 0; font-family: monospace; font-size: 15px; font-weight: 700; color: #a5d6a7;">{password}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; color: #9ca3af;">Preferred Language:</td>
+            <td style="padding: 8px 0; color: #4caf50; font-weight: 700;">{language.title()}</td>
           </tr>
         </table>
+        <div style="margin-top: 14px; font-size: 12px; color: #9ca3af; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+          💡 <em>Tip: Use your Email and Password above to sign in anytime at GramSetu AI. Please keep these credentials secure.</em>
+        </div>
       </div>
 
       <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin: 24px 0 12px;">🌟 What You Can Do with GramSetu AI:</div>
@@ -636,8 +639,8 @@ def send_welcome_email(to_email: str, name: str, language: str = "hindi") -> boo
       </ul>
 
       <div style="text-align: center; margin: 32px 0 16px;">
-        <a href="{frontend_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: #ffffff !important; text-decoration: none; padding: 15px 36px; font-size: 16px; font-weight: 700; border-radius: 12px; box-shadow: 0 6px 24px rgba(76, 175, 80, 0.45);">
-          Start Exploring Schemes →
+        <a href="{frontend_url}/login" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%); color: #ffffff !important; text-decoration: none; padding: 15px 36px; font-size: 16px; font-weight: 700; border-radius: 12px; box-shadow: 0 6px 24px rgba(76, 175, 80, 0.45);">
+          Sign In to Your Account →
         </a>
       </div>
     </div>
@@ -654,26 +657,35 @@ def send_welcome_email(to_email: str, name: str, language: str = "hindi") -> boo
 
 Congratulations! Your GramSetu AI account has been successfully created.
 
-Account Details:
-- Name: {name}
-- Email: {to_email}
+Your Account Credentials:
+- Full Name: {name}
+- Username / Email: {to_email}
+- Password: {password}
 - Preferred Language: {language.title()}
 
-What you can do:
-1. Search & Explore 63+ Central & State Schemes
+Sign in to your account:
+{frontend_url}/login
+
+What you can do with GramSetu AI:
+1. Search & Explore 63+ Central & State Schemes (PM Kisan, Ayushman Bharat, PM Awas Yojana, etc.)
 2. Check eligibility criteria and required documents checklist
 3. Ask questions by typing or speaking in Hindi, Marathi, or English
 4. Get clear step-by-step application guidance
 
-Access your dashboard:
-{frontend_url}
-
 --
 GramSetu AI Team
 Multilingual Government Scheme Assistant
+{frontend_url}
 """
 
-    return send_email(to_email, subject, html_content, plain_text)
+    print(f"[AUTH] Sending welcome email with credentials to {to_email}...")
+    try:
+        sent = send_email(to_email, subject, html_content, plain_text)
+        print(f"[AUTH] Welcome email to {to_email} sent status: {sent}")
+        return sent
+    except Exception as e:
+        print(f"[AUTH ERROR] Failed to send welcome email to {to_email}: {e}")
+        return False
 
 class ForgotPasswordRequest(BaseModel):
     email: str
