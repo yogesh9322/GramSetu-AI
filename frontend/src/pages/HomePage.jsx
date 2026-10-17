@@ -148,53 +148,42 @@ export default function HomePage({ setPage }) {
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <a
-              href="https://github.com/yogesh9322/GramSetu-AI"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="GitHub Repository"
-              className="nav-github-btn"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                color: "#fff",
-                padding: "8px 12px",
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 600,
-                textDecoration: "none",
-                transition: "all 0.2s"
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(76,175,80,0.15)"; e.currentTarget.style.borderColor = "rgba(76,175,80,0.5)" }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)" }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-              </svg>
-              {/* <span>GitHub</span> */}
-            </a>
-            
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
             <button
               onClick={() => setPage("login")}
               style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                color: "#fff", padding: "7px 12px", borderRadius: 10,
-                fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s"
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.18)",
+                color: "#fff",
+                padding: "8px 16px",
+                borderRadius: 10,
+                fontSize: 13.5,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center"
               }}
-              onMouseEnter={e => { e.target.style.background = "rgba(76,175,80,0.15)"; e.target.style.borderColor = "rgba(76,175,80,0.5)" }}
-              onMouseLeave={e => { e.target.style.background = "rgba(255,255,255,0.05)"; e.target.style.borderColor = "rgba(255,255,255,0.15)" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(76,175,80,0.15)"; e.currentTarget.style.borderColor = "rgba(76,175,80,0.5)" }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)" }}
             >
               Log In
             </button>
             <button
               onClick={() => setPage("register")}
               className="btn-primary"
-              style={{ padding: "7px 14px", borderRadius: 10, fontSize: 13, whiteSpace: "nowrap" }}
+              style={{
+                padding: "8px 18px",
+                borderRadius: 10,
+                fontSize: 13.5,
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 4px 14px rgba(76, 175, 80, 0.35)"
+              }}
             >
               Start Free ✨
             </button>
@@ -494,7 +483,7 @@ export default function HomePage({ setPage }) {
             rel="noopener noreferrer"
             style={{ color: "#4caf50", textDecoration: "none", fontSize: 13, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}
           >
-            <span>⭐ GitHub: yogesh9322/GramSetu-AI</span>
+       {/* <span>⭐ GitHub: yogesh9322/GramSetu-AI</span> */}
           </a>
         </div>
       </footer>
