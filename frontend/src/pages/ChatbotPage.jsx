@@ -303,7 +303,7 @@ function FormattedAnswer({ text, lang = "hindi" }) {
           >
             {audioLoading ? "⏳ Loading Voice..." : speaking ? "⏹️ Stop Voice" : "🔊 Listen"}
           </button>
-          <button
+          {/* <button
             onClick={copyToClipboard}
             title="Copy answer"
             style={{
@@ -320,9 +320,12 @@ function FormattedAnswer({ text, lang = "hindi" }) {
               cursor: "pointer",
               transition: "all 0.2s"
             }}
-          >
-            {copied ? "✓ Copied" : "📋 Copy"}
-          </button>
+          > 
+            
+<button>
+  {copied ? "✓ Copied" : "📋 Copy"}
+</button>
+*/}
         </div>
       </div>
 
