@@ -7,6 +7,7 @@ export default function ForgotPasswordPage({ setPage }) {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const [successMsg, setSuccessMsg] = useState("")
+  const [devResetUrl, setDevResetUrl] = useState("")
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -37,6 +38,9 @@ export default function ForgotPasswordPage({ setPage }) {
       }
       setSuccess(true)
       setSuccessMsg(data.message || "If an account exists with this email, a password reset link has been sent to your inbox.")
+      if (data.dev_reset_url) {
+        setDevResetUrl(data.dev_reset_url)
+      }
     } catch (err) {
       if (err.name === "TypeError" || err.message === "Failed to fetch") {
         setError(
@@ -147,33 +151,78 @@ export default function ForgotPasswordPage({ setPage }) {
           )}
 
           {success ? (
-            <div style={{
-              background: "rgba(76,175,80,0.1)", border: "1px solid rgba(76,175,80,0.35)",
-              borderRadius: 16, padding: "24px 20px", textAlign: "center",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.3)"
-            }}>
+            devResetUrl ? (
               <div style={{
-                width: 56, height: 56, borderRadius: "50%", background: "rgba(76,175,80,0.2)",
-                display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px",
-                fontSize: 26, color: "#4caf50"
+                background: "rgba(255, 193, 7, 0.08)", border: "1px solid rgba(255, 193, 7, 0.35)",
+                borderRadius: 16, padding: "24px 20px", textAlign: "center",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.3)"
               }}>
-                ✉️
+                <div style={{
+                  width: 56, height: 56, borderRadius: "50%", background: "rgba(255, 193, 7, 0.18)",
+                  display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px",
+                  fontSize: 26, color: "#ffc107"
+                }}>
+                  🔑
+                </div>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginBottom: 10 }}>Password Reset Ready!</h3>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 1.6, marginBottom: 16 }}>
+                  {successMsg}
+                </p>
+                <div style={{
+                  background: "rgba(0,0,0,0.45)", border: "1px dashed rgba(255, 193, 7, 0.4)",
+                  borderRadius: 10, padding: "10px 12px", fontSize: 12, color: "#ffc107",
+                  wordBreak: "break-all", marginBottom: 18, userSelect: "all", fontFamily: "monospace"
+                }}>
+                  {devResetUrl}
+                </div>
+                <a
+                  href={devResetUrl}
+                  style={{
+                    display: "block", width: "100%", padding: "14px", borderRadius: 12,
+                    fontSize: 15, fontWeight: 800, background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                    color: "#000", textAlign: "center", textDecoration: "none",
+                    boxShadow: "0 4px 15px rgba(245, 158, 11, 0.35)", marginBottom: 12
+                  }}
+                >
+                  👉 Click Here to Reset Your Password Now
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPage("login")}
+                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", fontSize: 13, cursor: "pointer", marginTop: 6 }}
+                >
+                  Return to Sign In
+                </button>
               </div>
-              <h3 style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginBottom: 10 }}>Check Your Inbox</h3>
-              <p style={{ fontSize: 14, color: "rgba(255,255,255,0.75)", lineHeight: 1.6, marginBottom: 20 }}>
-                {successMsg}
-              </p>
-              <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 20 }}>
-                ⏱️ The reset link expires in <strong>20 minutes</strong>. Don't see it? Check your Spam or Promotions folder.
+            ) : (
+              <div style={{
+                background: "rgba(76,175,80,0.1)", border: "1px solid rgba(76,175,80,0.35)",
+                borderRadius: 16, padding: "24px 20px", textAlign: "center",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.3)"
+              }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: "50%", background: "rgba(76,175,80,0.2)",
+                  display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px",
+                  fontSize: 26, color: "#4caf50"
+                }}>
+                  ✉️
+                </div>
+                <h3 style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginBottom: 10 }}>Check Your Inbox</h3>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.75)", lineHeight: 1.6, marginBottom: 20 }}>
+                  {successMsg}
+                </p>
+                <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 20 }}>
+                  ⏱️ The reset link expires in <strong>20 minutes</strong>. Don't see it? Check your Spam or Promotions folder.
+                </div>
+                <button
+                  onClick={() => setPage("login")}
+                  className="btn-primary"
+                  style={{ width: "100%", padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 700 }}
+                >
+                  Back to Sign In
+                </button>
               </div>
-              <button
-                onClick={() => setPage("login")}
-                className="btn-primary"
-                style={{ width: "100%", padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 700 }}
-              >
-                Back to Sign In
-              </button>
-            </div>
+            )
           ) : (
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom: 24 }}>

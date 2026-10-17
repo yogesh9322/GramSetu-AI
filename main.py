@@ -402,11 +402,15 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 EMAILS_FROM = os.getenv("EMAILS_FROM", os.getenv("SMTP_FROM", SMTP_USER or "GramSetu AI <noreply@gramsetu.ai>"))
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+RESEND_FROM = os.getenv("RESEND_FROM", "GramSetu AI <onboarding@resend.dev>")
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://gram-setu-ai.vercel.app").rstrip("/")
 
 def send_password_reset_email(to_email: str, reset_url: str) -> bool:
     """
-    Send a professional HTML and plain-text password reset email via SMTP.
+    Send a professional HTML and plain-text password reset email.
+    Supports Resend HTTP API (recommended for Render free tier), Brevo API, or standard SMTP.
     Returns True if sent successfully, False otherwise.
     """
     subject = "Reset Your Password - GramSetu AI"
@@ -478,36 +482,90 @@ https://gram-setu-ai.vercel.app
 
     print(f"[AUTH] Generated password reset link for {to_email}: {reset_url}")
 
-    if not SMTP_USER or not SMTP_PASSWORD:
-        print("[AUTH] (Notice) SMTP_USER / SMTP_PASSWORD not set in environment. Live email not sent, but reset link was logged above for verification.")
-        return False
+    # 1. Try Resend HTTP API (Port 443 - Recommended for Render free tier where SMTP ports are blocked)
+    resend_key = os.getenv("RESEND_API_KEY") or RESEND_API_KEY
+    if resend_key:
+        try:
+            headers = {
+                "Authorization": f"Bearer {resend_key}",
+                "Content-Type": "application/json"
+            }
+            sender = os.getenv("RESEND_FROM") or RESEND_FROM
+            payload = {
+                "from": sender,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+                "text": plain_text
+            }
+            resp = requests.post("https://api.resend.com/emails", json=payload, headers=headers, timeout=12)
+            if resp.status_code in (200, 201):
+                print(f"[AUTH] Successfully sent password reset email via Resend to {to_email}")
+                return True
+            else:
+                print(f"[AUTH] Resend API error ({resp.status_code}): {resp.text}")
+        except Exception as e:
+            print(f"[AUTH] Exception sending email via Resend: {e}")
 
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = EMAILS_FROM
-        msg["To"] = to_email
+    # 2. Try Brevo HTTP API (Port 443)
+    brevo_key = os.getenv("BREVO_API_KEY") or BREVO_API_KEY
+    if brevo_key:
+        try:
+            headers = {
+                "api-key": brevo_key,
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "sender": {"name": "GramSetu AI", "email": os.getenv("BREVO_FROM_EMAIL", SMTP_USER or "support@gramsetu.ai")},
+                "to": [{"email": to_email}],
+                "subject": subject,
+                "htmlContent": html_content,
+                "textContent": plain_text
+            }
+            resp = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers, timeout=12)
+            if resp.status_code in (200, 201):
+                print(f"[AUTH] Successfully sent password reset email via Brevo to {to_email}")
+                return True
+            else:
+                print(f"[AUTH] Brevo API error ({resp.status_code}): {resp.text}")
+        except Exception as e:
+            print(f"[AUTH] Exception sending email via Brevo: {e}")
 
-        part1 = MIMEText(plain_text, "plain")
-        part2 = MIMEText(html_content, "html")
-        msg.attach(part1)
-        msg.attach(part2)
+    # 3. Fallback to standard SMTP (Gmail / Custom SMTP)
+    smtp_user = os.getenv("SMTP_USER") or SMTP_USER
+    smtp_pass = os.getenv("SMTP_PASSWORD") or SMTP_PASSWORD
+    if smtp_user and smtp_pass:
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = os.getenv("EMAILS_FROM") or EMAILS_FROM or smtp_user
+            msg["To"] = to_email
 
-        if SMTP_PORT == 465:
-            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15) as server:
-                server.login(SMTP_USER, SMTP_PASSWORD)
-                server.sendmail(EMAILS_FROM, to_email, msg.as_string())
-        else:
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
-                server.starttls()
-                server.login(SMTP_USER, SMTP_PASSWORD)
-                server.sendmail(EMAILS_FROM, to_email, msg.as_string())
+            part1 = MIMEText(plain_text, "plain")
+            part2 = MIMEText(html_content, "html")
+            msg.attach(part1)
+            msg.attach(part2)
 
-        print(f"[AUTH] Successfully sent password reset email to {to_email}")
-        return True
-    except Exception as e:
-        print(f"[AUTH] Failed to send email via SMTP ({SMTP_HOST}:{SMTP_PORT}): {e}")
-        return False
+            host = os.getenv("SMTP_HOST") or SMTP_HOST
+            port = int(os.getenv("SMTP_PORT") or SMTP_PORT)
+
+            if port == 465:
+                with smtplib.SMTP_SSL(host, port, timeout=12) as server:
+                    server.login(smtp_user, smtp_pass)
+                    server.sendmail(msg["From"], to_email, msg.as_string())
+            else:
+                with smtplib.SMTP(host, port, timeout=12) as server:
+                    server.starttls()
+                    server.login(smtp_user, smtp_pass)
+                    server.sendmail(msg["From"], to_email, msg.as_string())
+
+            print(f"[AUTH] Successfully sent password reset email via SMTP to {to_email}")
+            return True
+        except Exception as e:
+            print(f"[AUTH] Failed to send email via SMTP ({host}:{port}): {e}")
+
+    print("[AUTH] (Notice) No email service credentials configured. Set RESEND_API_KEY or SMTP_USER/SMTP_PASSWORD in Render Environment Variables.")
+    return False
 
 class ForgotPasswordRequest(BaseModel):
     email: str
@@ -524,7 +582,12 @@ async def forgot_password(req: ForgotPasswordRequest):
 
     user = get_user_by_email(email)
 
-    # To protect against email enumeration, always return positive status to client
+    has_email_service = bool(
+        os.getenv("RESEND_API_KEY") or 
+        os.getenv("BREVO_API_KEY") or 
+        (os.getenv("SMTP_USER") and os.getenv("SMTP_PASSWORD"))
+    )
+
     if user:
         conn = sqlite3.connect(DATABASE_FILE)
         cursor = conn.cursor()
@@ -546,15 +609,29 @@ async def forgot_password(req: ForgotPasswordRequest):
 
         reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
 
-        # Dispatch email asynchronously in background thread
-        threading.Thread(target=send_password_reset_email, args=(email, reset_link), daemon=True).start()
+        if has_email_service:
+            # Dispatch email asynchronously in background thread
+            threading.Thread(target=send_password_reset_email, args=(email, reset_link), daemon=True).start()
+            return {
+                "status": "success",
+                "email_sent": True,
+                "message": f"A password reset link has been dispatched to {email}. Please check your inbox and spam folder."
+            }
+        else:
+            print(f"[AUTH] (No email provider configured on Render) Reset link: {reset_link}")
+            return {
+                "status": "success",
+                "email_sent": False,
+                "dev_reset_url": reset_link,
+                "message": "Password reset link generated! Since an automated email service is not yet configured on the server, you can use the direct link below to reset your password immediately."
+            }
     else:
         print(f"[AUTH] Password reset requested for non-existent email: {email}")
-
-    return {
-        "status": "success",
-        "message": "If an account is associated with this email, a password reset link has been sent. Please check your inbox and spam folder."
-    }
+        return {
+            "status": "success",
+            "email_sent": False,
+            "message": "If an account is associated with this email, a password reset link has been sent. Please check your inbox and spam folder."
+        }
 
 @app.post("/auth/reset-password")
 async def reset_password(req: ResetPasswordRequest):
