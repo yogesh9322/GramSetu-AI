@@ -424,14 +424,12 @@ export default function ChatbotPage({ setPage }) {
   const [sidebarOpen, setSidebarOpen] = useState(typeof window !== "undefined" ? window.innerWidth > 768 : true)
   const [selectedScheme, setSelectedScheme] = useState(null)
   const [modalScheme, setModalScheme] = useState(null)
-  const [voiceReview, setVoiceReview] = useState(null)
 
   const messagesEndRef = useRef(null)
   const mediaRecorderRef = useRef(null)
   const audioChunksRef = useRef([])
   const audioRef = useRef(null)
   const recognitionRef = useRef(null)
-  const abortControllerRef = useRef(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -447,187 +445,31 @@ export default function ChatbotPage({ setPage }) {
     return ms && (category === "all" || s.category === category)
   })
 
-  const stopGeneration = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-      abortControllerRef.current = null
-    }
-    setLoading(false)
-  }
-
-  const ask = async (q = input, schemeOverride = undefined) => {
-    const questionText = (q !== undefined ? q : input).trim()
-    if (!questionText) return
-
-    const activeScheme = schemeOverride !== undefined ? schemeOverride : selectedScheme
-
-    // Clear input and voice review card
+  const ask = async (q = input) => {
+    if (!q.trim()) return
+    setMessages(p => [...p, { role: "user", text: q }])
     setInput("")
-    setVoiceReview(null)
     setLoading(true)
     setActiveTab("chat")
-
-    // Abort previous stream if still pending
-    if (abortControllerRef.current) {
-      try { abortControllerRef.current.abort() } catch {}
-    }
-    abortControllerRef.current = new AbortController()
-
-    // Append user message + initial empty bot streaming placeholder
-    setMessages(prev => [
-      ...prev,
-      { role: "user", text: questionText },
-      { role: "bot", text: "", lang: lang, isStreaming: true, scheme: activeScheme }
-    ])
-
-    const token = localStorage.getItem("token")
-    const payload = {
-      question: questionText,
-      language: lang,
-      scheme_id: activeScheme?.id ? String(activeScheme.id) : undefined,
-      scheme_name: activeScheme?.name,
-      history: messages.slice(-6).map(m => ({ role: m.role, text: m.text }))
-    }
-
-    const streamTimeout = setTimeout(() => {
-      if (!fullAnswer && abortControllerRef.current) {
-        console.warn("Stream taking >8.5s, triggering fallback...")
-        abortControllerRef.current.abort()
-      }
-    }, 8500)
-
     try {
-      // 1. Try real-time streaming endpoint (FastAPI SSE / StreamingResponse)
-      const res = await fetch(`${API}/ask/stream`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify(payload),
-        signal: abortControllerRef.current.signal
-      })
-
-      if (!res.ok || !res.body) {
-        throw new Error(`Streaming failed with status: ${res.status}`)
-      }
-
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let streamBuffer = ""
-      let fullAnswer = ""
-      let detectedLang = lang
-
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-
-        streamBuffer += decoder.decode(value, { stream: true })
-        const events = streamBuffer.split("\n\n")
-        streamBuffer = events.pop() || ""
-
-        for (const evt of events) {
-          const trimmed = evt.trim()
-          if (!trimmed.startsWith("data:")) continue
-          const jsonStr = trimmed.replace(/^data:\s*/, "")
-          try {
-            const data = JSON.parse(jsonStr)
-            if (data.type === "token") {
-              clearTimeout(streamTimeout)
-              fullAnswer += data.content
-              setMessages(prev => {
-                const copy = [...prev]
-                const last = copy[copy.length - 1]
-                if (last && last.role === "bot") {
-                  last.text = fullAnswer
-                  last.isStreaming = true
-                }
-                return copy
-              })
-            } else if (data.type === "start") {
-              clearTimeout(streamTimeout)
-              if (data.language) detectedLang = data.language
-            } else if (data.type === "done") {
-              setMessages(prev => {
-                const copy = [...prev]
-                const last = copy[copy.length - 1]
-                if (last && last.role === "bot") {
-                  last.isStreaming = false
-                  last.lang = data.language || detectedLang
-                }
-                return copy
-              })
-            } else if (data.type === "error") {
-              throw new Error(data.error)
-            }
-          } catch (parseErr) {
-            // Partial token JSON, continue buffering
-          }
-        }
-      }
-
-      // Finalize last bot message state
-      setMessages(prev => {
-        const copy = [...prev]
-        const last = copy[copy.length - 1]
-        if (last && last.role === "bot") {
-          last.isStreaming = false
-          if (!last.text && fullAnswer) last.text = fullAnswer
-        }
-        return copy
-      })
-
+      const res = await axios.post(
+        `${API}/ask`,
+        { question: q, language: lang },
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+      )
+      setMessages(p => [...p, { role: "bot", text: res.data.answer, lang: res.data.language }])
     } catch (err) {
-      if (err.name === "AbortError" && fullAnswer) {
-        // Stream completed partially or user stopped
-        setMessages(prev => {
-          const copy = [...prev]
-          const last = copy[copy.length - 1]
-          if (last && last.role === "bot") {
-            last.isStreaming = false
-          }
-          return copy
-        })
-      } else {
-        console.warn("Stream response fallback to standard /ask:", err)
-        // Fallback to synchronous /ask endpoint with strict 8s timeout
-        try {
-          const fallbackRes = await axios.post(`${API}/ask`, payload, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-            timeout: 8000
-          })
-          setMessages(prev => {
-            const copy = [...prev]
-            const last = copy[copy.length - 1]
-            if (last && last.role === "bot") {
-              last.text = fallbackRes.data.answer
-              last.lang = fallbackRes.data.language
-              last.isStreaming = false
-            } else {
-              copy.push({ role: "bot", text: fallbackRes.data.answer, lang: fallbackRes.data.language, isStreaming: false })
-            }
-            return copy
-          })
-        } catch (fbErr) {
-          const serverErr = fbErr?.response?.data?.detail
-          setMessages(prev => {
-            const copy = [...prev]
-            const last = copy[copy.length - 1]
-            const errorMsg = serverErr || "⚠️ Server response took too long. Please tap retry or ask another question."
-            if (last && last.role === "bot") {
-              last.text = errorMsg
-              last.isStreaming = false
-            } else {
-              copy.push({ role: "bot", text: errorMsg, lang, isStreaming: false })
-            }
-            return copy
-          })
+      const serverErr = err?.response?.data?.detail
+      setMessages(p => [
+        ...p,
+        {
+          role: "bot",
+          text: serverErr || "⚠️ Backend server is waking up or temporarily unavailable on Render. Please wait 10-20 seconds and ask again.",
+          lang
         }
-      }
+      ])
     } finally {
-      clearTimeout(streamTimeout)
       setLoading(false)
-      abortControllerRef.current = null
     }
   }
 
@@ -639,49 +481,32 @@ export default function ChatbotPage({ setPage }) {
       mediaRecorderRef.current.ondataavailable = e => audioChunksRef.current.push(e.data)
       mediaRecorderRef.current.onstop = async () => {
         stream.getTracks().forEach(t => t.stop())
-        setIsRecording(false)
         setLoading(true)
         try {
           const form = new FormData()
           form.append("audio", new Blob(audioChunksRef.current, { type: "audio/wav" }), "rec.wav")
-          
-          // Dedicated transcribe endpoint for speech review
-          const res = await axios.post(`${API}/transcribe`, form)
-          const recognizedText = res.data.transcript
-          if (recognizedText) {
-            setInput(recognizedText)
-            setVoiceReview({ text: recognizedText, lang: res.data.language || lang })
-          } else {
-            alert("No speech was recognized. Please speak clearly into your microphone and try again.")
-          }
-        } catch (err) {
-          console.warn("Transcribe failed, falling back to legacy voice-ask:", err)
-          try {
-            const form = new FormData()
-            form.append("audio", new Blob(audioChunksRef.current, { type: "audio/wav" }), "rec.wav")
-            const res = await axios.post(`${API}/voice-ask`, form, {
-              headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-              responseType: "blob"
-            })
+          const res = await axios.post(`${API}/voice-ask`, form, {
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+            responseType: "blob"
+          })
 
-            const decodeHeader = (b64) => {
-              try {
-                return atob(b64) ? new TextDecoder().decode(new Uint8Array(atob(b64).split('').map(c => c.charCodeAt(0)))) : b64
-              } catch {
-                return b64
-              }
+          const decodeHeader = (b64) => {
+            try {
+              return atob(b64) ? new TextDecoder().decode(new Uint8Array(atob(b64).split('').map(c => c.charCodeAt(0)))) : b64
+            } catch {
+              return b64
             }
-            const q = decodeHeader(res.headers["x-question"]) || "Voice Question"
-            const ans = decodeHeader(res.headers["x-answer"]) || ""
-            setMessages(p => [
-              ...p,
-              { role: "user", text: `🎤 "${q}"` },
-              { role: "bot", text: ans, lang: res.headers["x-language"] || lang }
-            ])
-            setAudioUrl(URL.createObjectURL(res.data))
-          } catch {
-            alert("Voice processing failed. Please type your query directly.")
           }
+          const q = decodeHeader(res.headers["x-question"]) || "Voice Question"
+          const ans = decodeHeader(res.headers["x-answer"]) || ""
+          setMessages(p => [
+            ...p,
+            { role: "user", text: `🎤 "${q}"` },
+            { role: "bot", text: ans, lang: res.headers["x-language"] || lang }
+          ])
+          setAudioUrl(URL.createObjectURL(res.data))
+        } catch {
+          setMessages(p => [...p, { role: "bot", text: "❌ Voice processing failed. Please type your query.", lang }])
         } finally {
           setLoading(false)
         }
@@ -689,7 +514,7 @@ export default function ChatbotPage({ setPage }) {
       mediaRecorderRef.current.start()
       setIsRecording(true)
     } catch {
-      alert("Microphone access denied or unsupported in this browser environment! Please check browser site permissions.")
+      alert("Microphone access denied or unsupported in this browser environment!")
     }
   }
 
@@ -697,9 +522,6 @@ export default function ChatbotPage({ setPage }) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (SpeechRecognition) {
       try {
-        if (recognitionRef.current) {
-          try { recognitionRef.current.abort() } catch {}
-        }
         const recognition = new SpeechRecognition()
         recognition.continuous = false
         recognition.interimResults = false
@@ -707,25 +529,22 @@ export default function ChatbotPage({ setPage }) {
 
         recognition.onstart = () => setIsRecording(true)
         recognition.onresult = (e) => {
-          const transcript = e.results[0]?.[0]?.transcript?.trim()
+          const transcript = e.results[0]?.[0]?.transcript
           if (transcript) {
             setInput(transcript)
-            setVoiceReview({ text: transcript, lang })
+            ask(transcript)
           }
         }
-        recognition.onerror = (e) => {
-          console.warn("Browser SpeechRecognition notice:", e.error)
+        recognition.onerror = () => {
           setIsRecording(false)
-          if (e.error !== "no-speech" && e.error !== "aborted") {
-            fallbackServerRecording()
-          }
+          fallbackServerRecording()
         }
         recognition.onend = () => setIsRecording(false)
         recognitionRef.current = recognition
         recognition.start()
         return
-      } catch (e) {
-        console.warn("SpeechRecognition failed to start:", e)
+      } catch {
+        // Fall back below
       }
     }
     fallbackServerRecording()
@@ -989,25 +808,10 @@ export default function ChatbotPage({ setPage }) {
             </button>
             <div style={{ minWidth: 0 }}>
               <div className="chat-header-title" style={{ fontSize: 15, fontWeight: 800, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>GramSetu AI Advisory Assistant</div>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 <span style={{ width: 6, height: 6, background: "#4caf50", borderRadius: "50%", boxShadow: "0 0 8px #4caf50", flexShrink: 0 }} />
                 <span>63 Schemes • {LANG_LABELS[lang]}</span>
-                {selectedScheme && (
-                  <span style={{
-                    background: "rgba(76,175,80,0.18)", border: "1px solid rgba(76,175,80,0.4)",
-                    borderRadius: 6, padding: "1px 6px", color: "#a5d6a7", fontSize: 10, fontWeight: 700,
-                    display: "inline-flex", alignItems: "center", gap: 4
-                  }}>
-                    <span>{selectedScheme.icon} {selectedScheme.name}</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setSelectedScheme(null) }}
-                      title="Clear scheme focus"
-                      style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", padding: "0 2px", fontSize: 11 }}
-                    >
-                      ✕
-                    </button>
-                  </span>
-                )}
+                {selectedScheme && <span style={{ color: "#4caf50" }}> • {selectedScheme.icon} {selectedScheme.name}</span>}
               </div>
             </div>
           </div>
@@ -1068,17 +872,7 @@ export default function ChatbotPage({ setPage }) {
                   color: "#fff", fontSize: 14, lineHeight: 1.6, boxShadow: "0 6px 20px rgba(0,0,0,0.25)"
                 }}
               >
-                {msg.role === "bot" ? (
-                  msg.text ? (
-                    <FormattedAnswer text={msg.text} lang={msg.lang || lang} />
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", color: "#81c784" }}>
-                      <span className="shimmer-text" style={{ fontSize: 13, fontWeight: 700 }}>🌾 GramSetu AI is analyzing verified scheme rules...</span>
-                    </div>
-                  )
-                ) : (
-                  msg.text
-                )}
+                {msg.role === "bot" ? <FormattedAnswer text={msg.text} lang={msg.lang || lang} /> : msg.text}
               </div>
 
               {msg.role === "user" && (
@@ -1093,13 +887,13 @@ export default function ChatbotPage({ setPage }) {
             </div>
           ))}
 
-          {loading && messages[messages.length - 1]?.role !== "bot" && (
+          {loading && (
             <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
               <div style={{ width: 34, height: 34, background: "linear-gradient(135deg,#1b5e20,#4caf50)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
                 🌾
               </div>
               <div style={{ padding: "12px 18px", borderRadius: "20px 20px 20px 4px", background: "rgba(22, 33, 25, 0.7)", border: "1px solid rgba(76, 175, 80, 0.25)", display: "flex", gap: 6 }}>
-                <span className="badge badge-emerald">Analyzing...</span>
+                <span className="badge badge-emerald">Thinking...</span>
               </div>
             </div>
           )}
@@ -1120,99 +914,12 @@ export default function ChatbotPage({ setPage }) {
           </div>
         )}
 
-        {/* Voice Transcript Review Card */}
-        {voiceReview && (
-          <div style={{
-            margin: "0 16px 8px", padding: "10px 14px",
-            background: "rgba(33, 150, 243, 0.12)", border: "1px solid rgba(33, 150, 243, 0.35)",
-            borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#90caf9", flex: 1, minWidth: 200 }}>
-              <span style={{ fontSize: 18 }}>🎤</span>
-              <span>Voice Recognized: <strong>"{voiceReview.text}"</strong></span>
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <button
-                onClick={() => { const q = voiceReview.text; setVoiceReview(null); ask(q); }}
-                className="btn-primary"
-                style={{ padding: "6px 14px", fontSize: 12, borderRadius: 8, fontWeight: 700 }}
-              >
-                Send Question 🚀
-              </button>
-              <button
-                onClick={() => setVoiceReview(null)}
-                style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", fontSize: 12, cursor: "pointer" }}
-              >
-                Edit in box / Dismiss
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Contextual Follow-Up Suggestions */}
-        <div style={{ padding: "0 16px 8px", display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
-          {selectedScheme ? (
-            <>
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", alignSelf: "center", whiteSpace: "nowrap" }}>Follow-up:</span>
-              {[
-                { l: "💰 Key Benefits", q: `What are the key benefits and financial assistance of ${selectedScheme.name}?` },
-                { l: "🧑‍🌾 Eligibility", q: `Who is eligible to apply for ${selectedScheme.name}?` },
-                { l: "📋 Documents", q: `Which documents are required for ${selectedScheme.name}?` },
-                { l: "📝 How to Apply", q: `How do I apply for ${selectedScheme.name} step by step?` },
-                { l: "🟠 मराठीत सांगा", q: `${selectedScheme.name} योजनेबद्दल संपूर्ण माहिती मराठीत सांगा.` }
-              ].map((chip, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => ask(chip.q)}
-                  disabled={loading}
-                  style={{
-                    background: "rgba(76,175,80,0.12)", border: "1px solid rgba(76,175,80,0.25)",
-                    color: "#a5d6a7", padding: "4px 10px", borderRadius: 100, fontSize: 11,
-                    fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s"
-                  }}
-                  onMouseEnter={e => e.target.style.background = "rgba(76,175,80,0.25)"}
-                  onMouseLeave={e => e.target.style.background = "rgba(76,175,80,0.12)"}
-                >
-                  {chip.l}
-                </button>
-              ))}
-            </>
-          ) : (
-            <>
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", alignSelf: "center", whiteSpace: "nowrap" }}>Trending:</span>
-              {[
-                { l: "🌾 PM Kisan 6000", q: "PM Kisan Samman Nidhi scheme eligibility and payment dates?" },
-                { l: "🏥 Ayushman 5 Lakh", q: "Ayushman Bharat Golden Card kaise banaye aur 5 lakh cover kaise milega?" },
-                { l: "🏠 PM Awas Yojana", q: "PM Awas Yojana Gramin housing grant apply process?" },
-                { l: "💳 Kisan Credit Card", q: "Kisan Credit Card (KCC) low interest loan kaise milega?" },
-                { l: "☀️ PM KUSUM Solar", q: "PM KUSUM solar agricultural pump 60 percent subsidy apply?" }
-              ].map((chip, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => ask(chip.q)}
-                  disabled={loading}
-                  style={{
-                    background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-                    color: "rgba(255,255,255,0.7)", padding: "4px 10px", borderRadius: 100, fontSize: 11,
-                    fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s"
-                  }}
-                  onMouseEnter={e => { e.target.style.background = "rgba(76,175,80,0.15)"; e.target.style.color = "#a5d6a7"; }}
-                  onMouseLeave={e => { e.target.style.background = "rgba(255,255,255,0.04)"; e.target.style.color = "rgba(255,255,255,0.7)"; }}
-                >
-                  {chip.l}
-                </button>
-              ))}
-            </>
-          )}
-        </div>
-
         {/* Input Console */}
         <div className="chat-input-area" style={{ padding: "14px 16px", borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(10, 15, 12, 0.95)" }}>
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
             {/* Record Button */}
             <button
               onClick={isRecording ? stopRecording : startRecording}
-              title={isRecording ? "Stop Recording" : "Speak via Microphone (Hindi, Marathi, English)"}
               style={{
                 width: 48, height: 48, borderRadius: 14,
                 border: isRecording ? "none" : "1px solid rgba(76, 175, 80, 0.3)",
@@ -1229,7 +936,7 @@ export default function ChatbotPage({ setPage }) {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask() } }}
-              placeholder={selectedScheme ? `Ask anything about ${selectedScheme.name}...` : lang === "marathi" ? "कोणत्याही योजनेबद्दल विचारा... (Enter पाठवा)" : lang === "hindi" ? "किसी भी योजना के बारे में पूछें... (Enter दबाएं)" : "Ask about any government scheme..."}
+              placeholder={lang === "marathi" ? "कोणत्याही योजनेबद्दल विचारा... (Enter पाठवा)" : lang === "hindi" ? "किसी भी योजना के बारे में पूछें... (Enter दबाएं)" : "Ask about any government scheme..."}
               rows={1}
               style={{
                 flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(76, 175, 80, 0.25)",
@@ -1238,36 +945,21 @@ export default function ChatbotPage({ setPage }) {
               }}
             />
 
-            {/* Send or Stop Generating Button */}
-            {loading ? (
-              <button
-                onClick={stopGeneration}
-                title="Stop Generating"
-                style={{
-                  width: 48, height: 48, borderRadius: 14, padding: 0, fontSize: 16, flexShrink: 0,
-                  background: "rgba(239, 83, 80, 0.2)", border: "1px solid #ef5350", color: "#ef5350",
-                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontWeight: 800
-                }}
-              >
-                ⏹️
-              </button>
-            ) : (
-              <button
-                onClick={() => ask()}
-                disabled={!input.trim()}
-                className="btn-primary"
-                style={{
-                  width: 48, height: 48, borderRadius: 14, padding: 0, fontSize: 20, flexShrink: 0,
-                  opacity: !input.trim() ? 0.4 : 1, cursor: !input.trim() ? "not-allowed" : "pointer"
-                }}
-              >
-                ↑
-              </button>
-            )}
+            {/* Send Button */}
+            <button
+              onClick={() => ask()}
+              disabled={loading || !input.trim()}
+              className="btn-primary"
+              style={{
+                width: 48, height: 48, borderRadius: 14, padding: 0, fontSize: 20, flexShrink: 0,
+                opacity: loading || !input.trim() ? 0.4 : 1, cursor: loading || !input.trim() ? "not-allowed" : "pointer"
+              }}
+            >
+              {loading ? "⏳" : "↑"}
+            </button>
           </div>
           <div style={{ marginTop: 8, fontSize: 11, color: "rgba(255,255,255,0.3)", textAlign: "center" }}>
-            Press Enter to send • 🎤 Click microphone for Voice input • {selectedScheme ? `Active scheme: ${selectedScheme.name}` : "Click any scheme in sidebar to focus"}
+            Press Enter to send • 🎤 Click microphone for Voice input • Click ℹ️ on any scheme in sidebar for full details
           </div>
         </div>
       </div>

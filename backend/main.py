@@ -704,11 +704,11 @@ async def reset_password(req: ResetPasswordRequest):
         "message": "Your password has been successfully reset! You can now log in with your new password."
     }
 
-# ── Unified Ask Endpoints (Sync & Streaming) ───────────────────
+# ── Ask Endpoint ───────────────────────────────────────────────
 @app.post("/ask")
 async def ask(req: AskRequest, credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
-        from rag_pipeline import get_answer_unified
+        from rag_pipeline import get_answer
         language = req.language
         user_id = None
         if credentials:
@@ -717,107 +717,15 @@ async def ask(req: AskRequest, credentials: HTTPAuthorizationCredentials = Depen
                 user_id = user.get("id")
                 language = user.get("language", "hindi") if not language else language
         
-        answer, detected_lang, metrics = get_answer_unified(
-            question=req.question,
-            preferred_language=language,
-            scheme_id=req.scheme_id,
-            scheme_name=req.scheme_name,
-            history=req.history
-        )
+        answer, detected_lang = get_answer(req.question, preferred_language=language)
         
         # Record the ask visit
         record_visit(user_id=user_id, endpoint='/ask')
         
-        return {
-            "answer": answer,
-            "language": detected_lang,
-            "question": req.question,
-            "scheme_id": metrics.get("scheme_id"),
-            "latency_ms": metrics.get("total_ms")
-        }
+        return {"answer": answer, "language": detected_lang, "question": req.question}
     except Exception as e:
-        print(f"[ERROR in /ask]: {e}")
+        print(f"Error in /ask: {e}")
         raise HTTPException(status_code=500, detail=f"❌ Error: {str(e)}")
-
-@app.post("/ask/stream")
-async def ask_stream(req: AskRequest, credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """
-    Streaming SSE endpoint for real-time progressive response rendering.
-    Emits data: {"type": "token", "content": "..."}\n\n
-    """
-    try:
-        from rag_pipeline import stream_answer_unified
-        language = req.language
-        user_id = None
-        if credentials:
-            user = get_user_by_token(credentials.credentials)
-            if user:
-                user_id = user.get("id")
-                language = user.get("language", "hindi") if not language else language
-        
-        record_visit(user_id=user_id, endpoint='/ask/stream')
-        
-        return StreamingResponse(
-            stream_answer_unified(
-                question=req.question,
-                preferred_language=language,
-                scheme_id=req.scheme_id,
-                scheme_name=req.scheme_name,
-                history=req.history
-            ),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no"
-            }
-        )
-    except Exception as e:
-        print(f"[ERROR in /ask/stream]: {e}")
-        raise HTTPException(status_code=500, detail=f"❌ Stream Error: {str(e)}")
-
-@app.post("/transcribe")
-async def transcribe(audio: UploadFile = File(...)):
-    """
-    Dedicated audio transcription endpoint.
-    Converts citizen speech to text in Hindi, Marathi, or English.
-    Enables user to review, edit, or immediately submit their voice question.
-    """
-    if not audio:
-        raise HTTPException(status_code=400, detail="No audio file provided")
-    
-    audio_bytes = await audio.read()
-    if len(audio_bytes) == 0:
-        raise HTTPException(status_code=400, detail="Audio recording is empty")
-        
-    ext = os.path.splitext(audio.filename or "")[1] or ".wav"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
-        tmp.write(audio_bytes)
-        tmp_path = tmp.name
-        
-    try:
-        model = get_whisper_model()
-        result = model.transcribe(tmp_path)
-        transcript = result.get("text", "").strip()
-        detected_lang = result.get("language", "hi")
-        
-        lang_map = {"hi": "hindi", "mr": "marathi", "en": "english"}
-        mapped_lang = lang_map.get(detected_lang, "hindi")
-        
-        return {
-            "transcript": transcript,
-            "language": mapped_lang,
-            "detected_code": detected_lang
-        }
-    except Exception as e:
-        print(f"[TRANSCRIPTION ERROR]: {e}")
-        raise HTTPException(status_code=500, detail=f"Speech recognition failed: {str(e)}")
-    finally:
-        if os.path.exists(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
 
 # ── Voice Ask Endpoint ─────────────────────────────────────────
 import re
