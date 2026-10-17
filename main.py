@@ -688,27 +688,36 @@ def send_welcome_email(to_email: str, name: str, password: str, language: str = 
         Congratulations! Your <strong>GramSetu AI</strong> account has been successfully created. You now have instant access to verified information for <strong>63+ government welfare schemes</strong>, farmer subsidies, and rural empowerment initiatives.
       </p>
 
-      <div style="background: rgba(76, 175, 80, 0.08); border: 1px solid rgba(76, 175, 80, 0.35); border-radius: 14px; padding: 20px 22px; margin: 24px 0;">
-        <div style="font-size: 13px; font-weight: 700; color: #81c784; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px;">🔑 Your Login Credentials</div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-          <tr>
-            <td style="padding: 8px 0; color: #9ca3af; width: 38%;">Full Name:</td>
-            <td style="padding: 8px 0; color: #ffffff; font-weight: 600;">{name}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; color: #9ca3af;">Username / Email:</td>
-            <td style="padding: 8px 0; font-weight: 700; font-family: monospace; font-size: 15px; color: #81c784;">{to_email}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; color: #9ca3af;">Password:</td>
-            <td style="padding: 8px 0; font-family: monospace; font-size: 15px; font-weight: 700; color: #a5d6a7;">{password}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px 0; color: #9ca3af;">Preferred Language:</td>
-            <td style="padding: 8px 0; color: #4caf50; font-weight: 700;">{language.title()}</td>
-          </tr>
-        </table>
-        <div style="margin-top: 14px; font-size: 12px; color: #9ca3af; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+      <div style="background: rgba(76, 175, 80, 0.08); border: 1px solid rgba(76, 175, 80, 0.35); border-radius: 16px; padding: 22px 20px; margin: 24px 0;">
+        <div style="font-size: 13px; font-weight: 800; color: #81c784; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 16px;">
+          🔑 YOUR LOGIN CREDENTIALS
+        </div>
+
+        <!-- Full Name Card -->
+        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;">
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #9ca3af; margin-bottom: 4px; font-weight: 600;">Full Name</div>
+          <div style="font-size: 15px; color: #ffffff; font-weight: 700;">{name}</div>
+        </div>
+
+        <!-- Username / Email Card -->
+        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;">
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #9ca3af; margin-bottom: 4px; font-weight: 600;">Username / Registered Email</div>
+          <div style="font-size: 15px; color: #81c784; font-weight: 700; font-family: Consolas, 'Courier New', monospace; word-break: break-all;">{to_email}</div>
+        </div>
+
+        <!-- Password Card -->
+        <div style="background: rgba(76, 175, 80, 0.12); border: 1px solid rgba(76, 175, 80, 0.4); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;">
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #a5d6a7; margin-bottom: 4px; font-weight: 600;">Account Password</div>
+          <div style="font-size: 18px; color: #ffeb3b; font-weight: 800; font-family: Consolas, 'Courier New', monospace; letter-spacing: 1px; word-break: break-all;">{password}</div>
+        </div>
+
+        <!-- Preferred Language Card -->
+        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px 14px;">
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #9ca3af; margin-bottom: 4px; font-weight: 600;">Preferred Language</div>
+          <div style="font-size: 15px; color: #ffffff; font-weight: 700;">{language.title()}</div>
+        </div>
+
+        <div style="margin-top: 14px; font-size: 12px; color: #9ca3af; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; line-height: 1.5;">
           💡 <em>Tip: Use your Email and Password above to sign in anytime at GramSetu AI. Please keep these credentials secure.</em>
         </div>
       </div>
