@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useContext } from "react"
 import { ALL_SCHEMES, CAT_COLORS } from "../data/schemesData"
 import SchemeModal from "../components/SchemeModal"
+import { AuthContext } from "../context/AuthContext"
 
 const STATS = [
   { num: "63+", label: "Govt Schemes Covered", icon: "📋" },
@@ -26,6 +27,7 @@ const FAQS = [
 ]
 
 export default function HomePage({ setPage }) {
+  const { user, token } = useContext(AuthContext)
   const [scrollY, setScrollY] = useState(0)
   const [typedText, setTypedText] = useState("")
   const [search, setSearch] = useState("")
@@ -501,7 +503,7 @@ export default function HomePage({ setPage }) {
         <SchemeModal
           scheme={selectedScheme}
           onClose={() => setSelectedScheme(null)}
-          onAskAI={() => setPage("register")}
+          onAskAI={() => setPage(token ? "chatbot" : "register")}
         />
       )}
     </div>
