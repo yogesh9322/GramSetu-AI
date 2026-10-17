@@ -489,6 +489,13 @@ export default function ChatbotPage({ setPage }) {
       history: messages.slice(-6).map(m => ({ role: m.role, text: m.text }))
     }
 
+    const streamTimeout = setTimeout(() => {
+      if (!fullAnswer && abortControllerRef.current) {
+        console.warn("Stream taking >8.5s, triggering fallback...")
+        abortControllerRef.current.abort()
+      }
+    }, 8500)
+
     try {
       // 1. Try real-time streaming endpoint (FastAPI SSE / StreamingResponse)
       const res = await fetch(`${API}/ask/stream`, {
@@ -526,6 +533,7 @@ export default function ChatbotPage({ setPage }) {
           try {
             const data = JSON.parse(jsonStr)
             if (data.type === "token") {
+              clearTimeout(streamTimeout)
               fullAnswer += data.content
               setMessages(prev => {
                 const copy = [...prev]
@@ -537,6 +545,7 @@ export default function ChatbotPage({ setPage }) {
                 return copy
               })
             } else if (data.type === "start") {
+              clearTimeout(streamTimeout)
               if (data.language) detectedLang = data.language
             } else if (data.type === "done") {
               setMessages(prev => {
@@ -569,23 +578,23 @@ export default function ChatbotPage({ setPage }) {
       })
 
     } catch (err) {
-      if (err.name === "AbortError") {
-        // Generation stopped by citizen
+      if (err.name === "AbortError" && fullAnswer) {
+        // Stream completed partially or user stopped
         setMessages(prev => {
           const copy = [...prev]
           const last = copy[copy.length - 1]
           if (last && last.role === "bot") {
             last.isStreaming = false
-            if (!last.text) last.text = "(Response generation stopped by user)"
           }
           return copy
         })
       } else {
-        console.warn("Stream response failed, falling back to standard /ask:", err)
-        // Fallback to synchronous /ask endpoint
+        console.warn("Stream response fallback to standard /ask:", err)
+        // Fallback to synchronous /ask endpoint with strict 8s timeout
         try {
           const fallbackRes = await axios.post(`${API}/ask`, payload, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {}
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            timeout: 8000
           })
           setMessages(prev => {
             const copy = [...prev]
@@ -604,7 +613,7 @@ export default function ChatbotPage({ setPage }) {
           setMessages(prev => {
             const copy = [...prev]
             const last = copy[copy.length - 1]
-            const errorMsg = serverErr || "⚠️ Backend server is waking up or temporarily unavailable on Render. Please wait 10-20 seconds and ask again."
+            const errorMsg = serverErr || "⚠️ Server response took too long. Please tap retry or ask another question."
             if (last && last.role === "bot") {
               last.text = errorMsg
               last.isStreaming = false
@@ -616,6 +625,7 @@ export default function ChatbotPage({ setPage }) {
         }
       }
     } finally {
+      clearTimeout(streamTimeout)
       setLoading(false)
       abortControllerRef.current = null
     }
